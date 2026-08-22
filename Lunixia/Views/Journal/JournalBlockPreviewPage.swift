@@ -32,133 +32,23 @@ struct JournalBlockPreviewPage: View {
             LunixiaBackground()
             JournalEntryBackground(entry: entry)
 
-            ScrollView {
-                JournalPagedContentView(entry: entry, onMentionTapped: handleMentionTap)
-                    .frame(maxWidth: previewInnerPageMaxWidth)
-                    .frame(maxWidth: .infinity, alignment: .center)
+            VStack(spacing: 0) {
+                previewHeader
+                    .padding(.horizontal, 16)
                     .padding(.top, 8)
-                    .padding(.bottom, 180)
+
+                ScrollView {
+                    JournalPagedContentView(entry: entry, onMentionTapped: handleMentionTap)
+                        .frame(maxWidth: previewInnerPageMaxWidth)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 8)
+                        .padding(.bottom, 180)
+                }
+                .scrollIndicators(.visible)
             }
-            .scrollIndicators(.visible)
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    dismiss()
-                } label: {
-                    Circle()
-                        .fill(Color.white.opacity(0.08))
-                        .frame(width: 34, height: 34)
-                        .overlay(
-                            Circle()
-                                .stroke(resolvedToolbarColor.opacity(0.55), lineWidth: 1)
-                        )
-                        .overlay {
-                            Image("xmarkwavy")
-                                .renderingMode(.template)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 15, height: 15)
-                                .foregroundStyle(resolvedToolbarColor)
-                        }
-                }
-            }
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Menu {
-                    Button {
-                        showBackgroundSettingsSheet = true
-                    } label: {
-                        Label("Background", systemImage: "photo")
-                    }
-                    Button {
-                        showInnerPageSettingsSheet = true
-                    } label: {
-                        Label("Inner Page", systemImage: "rectangle.inset.filled")
-                    }
-                    Button {
-                        let hex = entry.textColorHex.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !hex.isEmpty,
-                           let r = UInt8(hex.prefix(2), radix: 16),
-                           let g = UInt8(hex.dropFirst(2).prefix(2), radix: 16),
-                           let b = UInt8(hex.dropFirst(4).prefix(2), radix: 16) {
-                            textColorPickerSelection = Color(
-                                red: Double(r) / 255,
-                                green: Double(g) / 255,
-                                blue: Double(b) / 255
-                            )
-                        } else {
-                            textColorPickerSelection = .white
-                        }
-                        showTextColorSheet = true
-                    } label: {
-                        Label("Text Color", systemImage: "textformat")
-                    }
-                } label: {
-                    Circle()
-                        .fill(Color.white.opacity(0.08))
-                        .frame(width: 34, height: 34)
-                        .overlay(
-                            Circle()
-                                .stroke(resolvedToolbarColor.opacity(0.55), lineWidth: 1)
-                        )
-                        .overlay {
-                            Image("paintdrop")
-                                .renderingMode(.template)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 15, height: 15)
-                                .foregroundStyle(resolvedToolbarColor)
-                        }
-                }
-                .disabled(isCompletingAction || entry.deletedAt != nil || entry.book == nil)
-                .opacity((isCompletingAction || entry.deletedAt != nil || entry.book == nil) ? 0.5 : 1)
-
-                Button {
-                    guard !isCompletingAction, entry.deletedAt == nil, entry.book != nil else { return }
-                    showEditorPage = true
-                } label: {
-                    Text("Edit")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(resolvedToolbarColor)
-                        .padding(.horizontal, 12)
-                        .frame(height: 34)
-                        .background(Color.white.opacity(0.08), in: Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(resolvedToolbarColor.opacity(0.55), lineWidth: 1)
-                        )
-                }
-                .disabled(isCompletingAction || entry.deletedAt != nil || entry.book == nil)
-                .opacity((isCompletingAction || entry.deletedAt != nil || entry.book == nil) ? 0.5 : 1)
-
-                Button(role: .destructive) {
-                    guard !isCompletingAction, entry.deletedAt == nil else { return }
-                    showDeleteConfirmation = true
-                } label: {
-                    Circle()
-                        .fill(Color.white.opacity(0.08))
-                        .frame(width: 34, height: 34)
-                        .overlay(
-                            Circle()
-                                .stroke(resolvedToolbarColor.opacity(0.55), lineWidth: 1)
-                        )
-                        .overlay {
-                            Image("trash")
-                                .renderingMode(.template)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 15, height: 15)
-                                .foregroundStyle(resolvedToolbarColor)
-                        }
-                }
-                .disabled(isCompletingAction || entry.deletedAt != nil)
-                .opacity((isCompletingAction || entry.deletedAt != nil) ? 0.5 : 1)
-            }
-        }
+        .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(isPresented: $showEditorPage) {
             Group {
                 if let book = entry.book, entry.deletedAt == nil {
@@ -267,6 +157,88 @@ struct JournalBlockPreviewPage: View {
             green: Double(g) / 255,
             blue: Double(b) / 255
         )
+    }
+
+    private var previewHeader: some View {
+        let actionsDisabled = isCompletingAction || entry.deletedAt != nil || entry.book == nil
+        let deleteDisabled = isCompletingAction || entry.deletedAt != nil
+
+        return HStack(spacing: 8) {
+            Menu {
+                Button {
+                    showBackgroundSettingsSheet = true
+                } label: {
+                    Label("Background", systemImage: "photo")
+                }
+                Button {
+                    showInnerPageSettingsSheet = true
+                } label: {
+                    Label("Inner Page", systemImage: "rectangle.inset.filled")
+                }
+                Button {
+                    let hex = entry.textColorHex.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !hex.isEmpty,
+                       let r = UInt8(hex.prefix(2), radix: 16),
+                       let g = UInt8(hex.dropFirst(2).prefix(2), radix: 16),
+                       let b = UInt8(hex.dropFirst(4).prefix(2), radix: 16) {
+                        textColorPickerSelection = Color(
+                            red: Double(r) / 255,
+                            green: Double(g) / 255,
+                            blue: Double(b) / 255
+                        )
+                    } else {
+                        textColorPickerSelection = .white
+                    }
+                    showTextColorSheet = true
+                } label: {
+                    Label("Text Color", systemImage: "textformat")
+                }
+            } label: {
+                headerCircle("paintdrop")
+            }
+            .disabled(actionsDisabled)
+            .opacity(actionsDisabled ? 0.5 : 1)
+
+            Button {
+                guard !actionsDisabled else { return }
+                showEditorPage = true
+            } label: {
+                headerCircle("pencilfill")
+            }
+            .disabled(actionsDisabled)
+            .opacity(actionsDisabled ? 0.5 : 1)
+
+            Button(role: .destructive) {
+                guard !deleteDisabled else { return }
+                showDeleteConfirmation = true
+            } label: {
+                headerCircle("trash")
+            }
+            .disabled(deleteDisabled)
+            .opacity(deleteDisabled ? 0.5 : 1)
+
+            Spacer()
+
+            Button { dismiss() } label: {
+                headerCircle("xmarkwavy")
+            }
+        }
+    }
+
+    private func headerCircle(_ asset: String) -> some View {
+        Circle()
+            .fill(.thinMaterial)
+            .frame(width: 34, height: 34)
+            .overlay(Circle().strokeBorder(resolvedToolbarColor.opacity(0.25), lineWidth: 0.5))
+            .overlay {
+                Image(asset)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 15, height: 15)
+                    .foregroundStyle(resolvedToolbarColor)
+            }
+            .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
     }
 
     private func handleMentionTap(_ idString: String) {

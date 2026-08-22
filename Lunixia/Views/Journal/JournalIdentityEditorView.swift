@@ -159,11 +159,27 @@ struct JournalIdentityEditorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Entry date + time — custom picker, matches the entry's text tint
+            JournalEntryDateTimePicker(
+                date: Binding(
+                    get: { entry.createdAt },
+                    set: { newValue in
+                        entry.createdAt = newValue
+                        entry.touch()
+                        try? modelContext.save()
+                    }
+                ),
+                tint: resolvedTitleColor
+            )
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 4)
+
             // Cover image editor zone
             if let data = entry.coverImageData, let uiImage = UIImage(data: data) {
                 coverEditorView(uiImage)
                     .padding(.horizontal, 16)
-                    .padding(.top, 16)
+                    .padding(.top, 8)
                     .padding(.bottom, 14)
             } else {
                 PhotosPicker(selection: $selectedPhoto, matching: .images) {
@@ -182,7 +198,7 @@ struct JournalIdentityEditorView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 20)
-                .padding(.top, 16)
+                .padding(.top, 8)
                 .padding(.bottom, 10)
             }
 

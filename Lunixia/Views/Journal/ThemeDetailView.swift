@@ -141,27 +141,46 @@ struct ThemeDetailView: View {
 
     private func statsCard(_ data: ThemeDetailResponse) -> some View {
         GlassCard {
-            HStack {
+            HStack(spacing: 12) {
                 if let first = data.firstUsedDate {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("First Appeared")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(LColors.textSecondary)
+                            .foregroundStyle(LGradients.header)
                         Text(formatDateKey(first))
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(.white)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.white.opacity(0.06))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+                            )
+                    )
                 }
-                Spacer()
                 if let last = data.lastUsedDate {
-                    VStack(alignment: .trailing, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("Most Recent")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(LColors.textSecondary)
+                            .foregroundStyle(LGradients.header)
                         Text(formatDateKey(last))
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(.white)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.white.opacity(0.06))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+                            )
+                    )
                 }
             }
         }

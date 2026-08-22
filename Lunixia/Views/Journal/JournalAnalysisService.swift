@@ -121,7 +121,7 @@ final class JournalAnalysisService {
     static let shared = JournalAnalysisService()
     private init() {}
 
-    private let baseURL = "https://appapi.vox.com.im"
+    private let baseURL = "https://appapi.voxiverse.ink"
 
     func fetchAnalysis(userId: String, bookId: String, dateKey: String) async throws -> JournalAnalysisResponse? {
         guard var components = URLComponents(string: "\(baseURL)/api/journal/analyze") else {

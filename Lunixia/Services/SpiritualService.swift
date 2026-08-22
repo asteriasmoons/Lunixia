@@ -22,7 +22,7 @@ final class SpiritualService {
     static let shared = SpiritualService()
     private init() {}
 
-    private let baseURL = "https://appapi.vox.com.im/api/spiritual"
+    private let baseURL = "https://appapi.voxiverse.ink/api/spiritual"
 
     // MARK: - Tarot
 

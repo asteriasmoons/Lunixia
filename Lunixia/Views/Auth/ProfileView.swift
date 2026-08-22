@@ -12,9 +12,14 @@ struct ProfileView: View {
     @EnvironmentObject private var storeManager: LunixiaStoreManager
     @Query private var users: [AuthUser]
     @Query private var profiles: [LunixiaPointsProfile]
+    @Query private var tarotRecords: [DailyTarotRecord]
+    @Query private var tarotPullRecords: [TarotPullRecord]
+    @Query private var lenormandRecords: [DailyLenormandRecord]
+    @Query private var lenormandPullRecords: [LenormandPullRecord]
 
     @State private var pickerItem: PhotosPickerItem? = nil
     @State private var profileImage: UIImage? = nil
+    @State private var showSpiritualEraseConfirmation = false
 
     private var user: AuthUser? { users.first }
     private var currentPoints: Int { profiles.first?.currentPoints ?? 0 }
@@ -121,6 +126,31 @@ struct ProfileView: View {
                         .padding(.horizontal, 16)
 
                         #if DEBUG
+                        if isSpiritualResetAdmin {
+                        Button {
+                            eraseTodaysSpiritualRecords()
+                            showSpiritualEraseConfirmation = true
+                        } label: {
+                            GlassCard(padding: 18) {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "trash")
+                                        .foregroundStyle(LGradients.header)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Erase Today’s Tarot + Lenormand")
+                                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                                            .foregroundStyle(LColors.textPrimary)
+                                        Text("Developer-only reset button")
+                                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                                            .foregroundStyle(LColors.textSecondary)
+                                    }
+                                    Spacer()
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 16)
+                        }
+
                         Button {
                             storeManager.toggleAdminPremiumOverride()
                         } label: {
@@ -166,6 +196,43 @@ struct ProfileView: View {
             }
         }
         .onAppear { loadSavedPhoto() }
+        .alert("Spiritual Data Erased", isPresented: $showSpiritualEraseConfirmation) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Today’s Tarot and Lenormand records have been removed.")
+        }
+    }
+
+    private let debugAppleUserID = "001664.f2fefbb84f024544b98e865fa6c6b49e.1524"
+
+    private var isSpiritualResetAdmin: Bool {
+        user?.appleUserId == debugAppleUserID
+    }
+
+    private func eraseTodaysSpiritualRecords() {
+        guard isSpiritualResetAdmin else { return }
+
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let tomorrowStart = calendar.date(byAdding: .day, value: 1, to: todayStart)!
+
+        for record in tarotRecords where record.createdAt >= todayStart && record.createdAt < tomorrowStart {
+            modelContext.delete(record)
+        }
+
+        for record in lenormandRecords where record.createdAt >= todayStart && record.createdAt < tomorrowStart {
+            modelContext.delete(record)
+        }
+
+        for record in tarotPullRecords where record.pulledAt >= todayStart && record.pulledAt < tomorrowStart {
+            modelContext.delete(record)
+        }
+
+        for record in lenormandPullRecords where record.pulledAt >= todayStart && record.pulledAt < tomorrowStart {
+            modelContext.delete(record)
+        }
+
+        try? modelContext.save()
     }
 
     // MARK: - Photo handling

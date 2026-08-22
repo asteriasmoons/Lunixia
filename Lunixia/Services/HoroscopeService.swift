@@ -16,7 +16,7 @@ final class HoroscopeService {
 
     private init() {}
 
-    private let baseURL = "https://appapi.vox.com.im"
+    private let baseURL = "https://appapi.voxiverse.ink"
 
     private struct HoroscopeRequest: Codable {
         let sign: String

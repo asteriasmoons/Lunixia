@@ -16,6 +16,7 @@ struct MoodLogSheet: View {
     @State private var selectedEmotions: [MoodEmotion] = []
     @State private var selectedActivities: [MoodActivity] = []
     @State private var note: String = ""
+    @State private var entryDate: Date = Date()
 
     private let hk = HealthKitManager.shared
 
@@ -257,6 +258,10 @@ struct MoodLogSheet: View {
                                     )
                             )
                     )
+
+                // Custom date & time picker — sits below the note box.
+                JournalEntryDateTimePicker(date: $entryDate)
+                    .padding(.top, 4)
             }
             .padding(.horizontal, 20)
 
@@ -345,7 +350,8 @@ struct MoodLogSheet: View {
         let entry = MoodEntry(
             emotions: selectedEmotions,
             activities: selectedActivities,
-            note: note
+            note: note,
+            timestamp: entryDate
         )
 
         // Write HealthKit values

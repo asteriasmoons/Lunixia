@@ -48,42 +48,42 @@ struct SleepHealthCard: View {
     }
 
     var body: some View {
-        GlassCard(padding: 18) {
-            VStack(alignment: .leading, spacing: 14) {
+        GlassCard(padding: 14) {
+            VStack(alignment: .leading, spacing: 9) {
                 header
 
-                HStack(alignment: .center, spacing: 16) {
+                HStack(alignment: .center, spacing: 6) {
+                    VStack(spacing: 8) {
+                        sleepInfoBox(
+                            value: sleepDisplay,
+                            label: "Sleep"
+                        )
+
+                        sleepInfoBox(
+                            value: goalDisplay,
+                            label: "Goal"
+                        )
+                    }
+                    .frame(maxWidth: .infinity)
+
                     SleepDottedGradientRing(
                         progress: sleepProgress,
                         value: sleepDisplay,
                         subtitle: "Last Night"
                     )
 
-                    VStack(spacing: 10) {
-                        HStack(spacing: 10) {
-                            sleepInfoBox(
-                                value: sleepDisplay,
-                                label: "Sleep"
-                            )
+                    VStack(spacing: 8) {
+                        sleepInfoBox(
+                            value: napDisplay,
+                            label: "Naps"
+                        )
 
-                            sleepInfoBox(
-                                value: goalDisplay,
-                                label: "Goal"
-                            )
-                        }
-
-                        HStack(spacing: 10) {
-                            sleepInfoBox(
-                                value: napDisplay,
-                                label: "Naps"
-                            )
-
-                            sleepInfoBox(
-                                value: "\(Int(sleepProgress * 100))%",
-                                label: "Progress"
-                            )
-                        }
+                        sleepInfoBox(
+                            value: "\(Int(sleepProgress * 100))%",
+                            label: "Progress"
+                        )
                     }
+                    .frame(maxWidth: .infinity)
                 }
 
                 Text(previousNightSleepHours > 0 ? sleepSubtitle : "Sleep will appear after HealthKit has sleep data.")
@@ -165,21 +165,22 @@ struct SleepHealthCard: View {
     }
 
     private func sleepInfoBox(value: String, label: String) -> some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 3) {
             Text(value)
-                .font(.system(size: 16, weight: .black, design: .rounded))
+                .font(.system(size: 14, weight: .black, design: .rounded))
                 .foregroundStyle(value == "--" ? LColors.textSecondary.opacity(0.35) : LColors.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
 
             Text(label)
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .font(.system(size: 9, weight: .semibold, design: .rounded))
                 .foregroundStyle(LColors.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 34)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 4)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(LColors.glassSurface)
@@ -193,8 +194,15 @@ private struct SleepDottedGradientRing: View {
     let subtitle: String
 
     private let dotCount = 42
-    private let size: CGFloat = 104
-    private let dotSize: CGFloat = 7
+    private let width: CGFloat = 104
+    private let height: CGFloat = 88
+    private let dotSize: CGFloat = 7.5
+    private var horizontalRadius: CGFloat {
+        (width / 2) - (dotSize / 2)
+    }
+    private var verticalRadius: CGFloat {
+        (height / 2) - (dotSize / 2)
+    }
 
     private var activeDots: Int {
         Int((min(max(progress, 0), 1) * Double(dotCount)).rounded(.up))
@@ -205,6 +213,7 @@ private struct SleepDottedGradientRing: View {
             ForEach(0..<dotCount, id: \.self) { index in
                 let isActive = index < activeDots
                 let angle = Double(index) / Double(dotCount) * 360
+                let radians = angle * .pi / 180
 
                 Circle()
                     .fill(
@@ -217,26 +226,28 @@ private struct SleepDottedGradientRing: View {
                         color: isActive ? LColors.gradientBlue.opacity(0.45) : .clear,
                         radius: isActive ? 3 : 0
                     )
-                    .offset(y: -(size / 2 - dotSize))
-                    .rotationEffect(.degrees(angle))
+                    .offset(
+                        x: cos(radians) * horizontalRadius,
+                        y: sin(radians) * verticalRadius
+                    )
             }
 
             VStack(spacing: 2) {
                 Text(value)
-                    .font(.system(size: 21, weight: .black, design: .rounded))
+                    .font(.system(size: 18, weight: .black, design: .rounded))
                     .foregroundStyle(LGradients.header)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
 
                 Text(subtitle)
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .font(.system(size: 8, weight: .bold, design: .rounded))
                     .foregroundStyle(LColors.textSecondary.opacity(0.75))
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
-            .frame(width: size * 0.68)
+            .frame(width: height * 0.68)
         }
-        .frame(width: size, height: size)
+        .frame(width: width, height: height)
     }
 }
 
@@ -674,4 +685,3 @@ private struct SleepNapHistorySheet: View {
             }
         }
     }
-

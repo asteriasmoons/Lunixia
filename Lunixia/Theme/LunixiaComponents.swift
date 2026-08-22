@@ -102,17 +102,10 @@ struct FloatingActionButton: View {
                 .foregroundStyle(.white)
                 .frame(width: 56, height: 56)
                 .background(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 3/255, green: 219/255, blue: 252/255),
-                            Color(red: 125/255, green: 25/255, blue: 247/255)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
+                    LGradients.header
                 )
                 .clipShape(Circle())
-                .shadow(color: Color(red: 3/255, green: 219/255, blue: 252/255).opacity(0.38), radius: 15, y: 10)
+                .shadow(color: LColors.accentHover.opacity(0.22), radius: 15, y: 10)
         }
         .buttonStyle(.plain)
     }
@@ -724,39 +717,82 @@ struct GlassCard<Content: View>: View {
             .padding(padding)
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(LColors.glassSurface2)
+                    .fill(Color(lunixiaHex: "#09090d").opacity(0.90))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(Color.white.opacity(0.045))
+                    }
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .fill(
-                                LinearGradient(
+                                RadialGradient(
                                     colors: [
-                                        LColors.gradientBlue.opacity(0.18),
-                                        LColors.gradientPurple.opacity(0.22),
-                                        Color.white.opacity(0.03)
+                                        Color(lunixiaHex: "#4388C5").opacity(0.36),
+                                        Color(lunixiaHex: "#4388C5").opacity(0.08),
+                                        Color(lunixiaHex: "#07070a").opacity(0.0)
                                     ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                                    center: UnitPoint(x: 0.22, y: 0.30),
+                                    startRadius: 0,
+                                    endRadius: 120
                                 )
                             )
+                            .blur(radius: 18)
+                            .mask(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        Color(lunixiaHex: "#6111b8").opacity(0.38),
+                                        Color(lunixiaHex: "#6111b8").opacity(0.09),
+                                        Color(lunixiaHex: "#07070a").opacity(0.0)
+                                    ],
+                                    center: UnitPoint(x: 0.78, y: 0.70),
+                                    startRadius: 0,
+                                    endRadius: 120
+                                )
+                            )
+                            .blur(radius: 18)
+                            .mask(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        Color(lunixiaHex: "#4f45bc").opacity(0.045),
+                                        Color(lunixiaHex: "#190a32").opacity(0.015),
+                                        Color(lunixiaHex: "#07070a").opacity(0.0)
+                                    ],
+                                    center: .center,
+                                    startRadius: 0,
+                                    endRadius: 115
+                                )
+                            )
+                            .blur(radius: 14)
+                            .mask(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .strokeBorder(
                                 LinearGradient(
                                     colors: [
-                                        LColors.gradientBlue.opacity(0.92),
-                                        LColors.gradientPurple.opacity(0.92),
-                                        Color.white.opacity(0.38)
+                                        Color(lunixiaHex: "#4388C5").opacity(0.30),
+                                        Color(lunixiaHex: "#6111b8").opacity(0.24),
+                                        Color.white.opacity(0.09),
+                                        Color.white.opacity(0.055)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ),
-                                lineWidth: 1.05
+                                lineWidth: 1
                             )
                     }
             }
-            .shadow(color: LColors.gradientBlue.opacity(0.18), radius: 16, y: 8)
-            .shadow(color: LColors.gradientPurple.opacity(0.14), radius: 18, y: 10)
+            .shadow(color: Color.black.opacity(0.42), radius: 18, y: 10)
+            .shadow(color: Color(lunixiaHex: "#4388C5").opacity(0.10), radius: 14, y: 6)
+            .shadow(color: Color(lunixiaHex: "#6111b8").opacity(0.10), radius: 16, y: 8)
     }
 }
 

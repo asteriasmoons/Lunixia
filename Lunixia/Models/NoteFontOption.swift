@@ -13,6 +13,8 @@ enum NoteFontOption: String, CaseIterable, Identifiable, Codable {
     case beautifulRainbow
     case balistia
     case cenila
+    case cheekySmileAlt
+    case chibiDinosaur
     case childowEveryday
     case chunkyBear
     case chubbyLines
@@ -22,7 +24,10 @@ enum NoteFontOption: String, CaseIterable, Identifiable, Codable {
     case inLove
     case liveOnTheMoon
     case loveMonday
+    case lumilkys
     case mightyFineDemibold
+    case rainbowClub
+    case santaJolly
     case soulDreams
     case sugarDonutHeart
 
@@ -36,6 +41,8 @@ enum NoteFontOption: String, CaseIterable, Identifiable, Codable {
         case .beautifulRainbow: return "Beautiful Rainbow"
         case .balistia: return "Balistia"
         case .cenila: return "Cenila"
+        case .cheekySmileAlt: return "Cheeky Smile Alt"
+        case .chibiDinosaur: return "Chibi Dinosaur"
         case .childowEveryday: return "Childow Everyday"
         case .chunkyBear: return "Chunky Bear"
         case .chubbyLines: return "Chubby Lines"
@@ -45,7 +52,10 @@ enum NoteFontOption: String, CaseIterable, Identifiable, Codable {
         case .inLove: return "Inlove"
         case .liveOnTheMoon: return "Live On The Moon"
         case .loveMonday: return "Love Monday"
+        case .lumilkys: return "Lumilkys"
         case .mightyFineDemibold: return "Mighty Fine Demibold"
+        case .rainbowClub: return "Rainbow Club"
+        case .santaJolly: return "Santa Jolly"
         case .soulDreams: return "Soul Dreams"
         case .sugarDonutHeart: return "Sugar Donut Heart"
         }
@@ -61,6 +71,10 @@ enum NoteFontOption: String, CaseIterable, Identifiable, Codable {
             return "Balistia-Regular"
         case .cenila:
             return "Cenila"
+        case .cheekySmileAlt:
+            return "CheekySmileAltRegular"
+        case .chibiDinosaur:
+            return "ChibiDinosaurRegular"
         case .childowEveryday:
             return "ChildowEveryday"
         case .chunkyBear:
@@ -79,8 +93,14 @@ enum NoteFontOption: String, CaseIterable, Identifiable, Codable {
             return "LiveonTheMoon"
         case .loveMonday:
             return "LoveMonday"
+        case .lumilkys:
+            return "Lumilkys"
         case .mightyFineDemibold:
             return "ZPMightyFineDemibold"
+        case .rainbowClub:
+            return "RainbowClubRegular"
+        case .santaJolly:
+            return "SantaJollyRegular"
         case .soulDreams:
             return "SoulDreams"
         case .sugarDonutHeart:
@@ -98,6 +118,10 @@ enum NoteFontOption: String, CaseIterable, Identifiable, Codable {
             return "Balistia.otf"
         case .cenila:
             return "Cenila.otf"
+        case .cheekySmileAlt:
+            return "Cheeky Smilealt.otf"
+        case .chibiDinosaur:
+            return "Chibi Dinosaur.otf"
         case .childowEveryday:
             return "Childow Everyday.otf"
         case .chunkyBear:
@@ -116,8 +140,14 @@ enum NoteFontOption: String, CaseIterable, Identifiable, Codable {
             return "Live On The Moon.otf"
         case .loveMonday:
             return "Love Monday.otf"
+        case .lumilkys:
+            return "Lumilkys Regular.ttf"
         case .mightyFineDemibold:
             return "Mighty Fine Demibold.otf"
+        case .rainbowClub:
+            return "RainbowClub.otf"
+        case .santaJolly:
+            return "Santa Jolly.otf"
         case .soulDreams:
             return "Soul Dreams.otf"
         case .sugarDonutHeart:
@@ -130,8 +160,11 @@ enum NoteFontOption: String, CaseIterable, Identifiable, Codable {
     }
 
     func font(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        NoteFontRegistrar.registerFontsIfNeeded()
-
+        // No manual registration here. Every file in `fileName` is listed under
+        // UIAppFonts in Info.plist, so iOS registers them all at launch. Calling
+        // CTFontManagerRegisterFontsForURL again re-registers fonts that are already
+        // installed, and that happened on the very first font lookup of each process —
+        // which is exactly when the editor was being opened for the first time.
         switch self {
         case .system:
             return .system(size: size, weight: weight)
@@ -148,7 +181,7 @@ enum NoteFontOption: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-private enum NoteFontRegistrar {
+enum NoteFontRegistrar {
     private static var didRegister = false
 
     static func registerFontsIfNeeded() {

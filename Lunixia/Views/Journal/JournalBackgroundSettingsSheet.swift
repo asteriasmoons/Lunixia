@@ -364,21 +364,7 @@ struct JournalBackgroundSettingsSheet: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image("xmarkwavy")
-                            .renderingMode(.template)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showPhotoPicker) {
                 JournalBackgroundImagePickerSheet { data in
                     entry.backgroundImageData = data

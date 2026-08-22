@@ -64,6 +64,13 @@ struct LunixiaVitalsWidgetSnapshot: Codable {
     var lastUpdated: Date
 }
 
+struct HealthKitStepSample: Identifiable, Sendable {
+    let id: String
+    let startDate: Date
+    let endDate: Date
+    let steps: Int
+}
+
 @Observable
 final class HealthKitManager {
     static let shared = HealthKitManager()
@@ -71,6 +78,7 @@ final class HealthKitManager {
     private let store = HKHealthStore()
     private let widgetDefaults = UserDefaults(suiteName: "group.com.asteriasmoons.Lunixia")
     private let healthWidgetSnapshotKey = "lunixiaHealthWidgetSnapshot"
+    private var stepObserverQuery: HKObserverQuery?
 
     var isAuthorized = false
     private(set) var hasFetchedToday = false
@@ -480,6 +488,39 @@ final class HealthKitManager {
 
     // MARK: - Public standalone steps fetch for Health tab
 
+    func startStepUpdates(onUpdate: @escaping () -> Void) async {
+        if !isAuthorized {
+            await requestAuthorization()
+        }
+
+        guard HKHealthStore.isHealthDataAvailable(),
+              let type = HKObjectType.quantityType(forIdentifier: .stepCount) else {
+            return
+        }
+
+        if let stepObserverQuery {
+            store.stop(stepObserverQuery)
+        }
+
+        let query = HKObserverQuery(
+            sampleType: type,
+            predicate: nil
+        ) { _, completionHandler, error in
+            if let error {
+                print("HealthKit step observer error: \(error)")
+                completionHandler()
+                return
+            }
+
+            onUpdate()
+            completionHandler()
+        }
+
+        stepObserverQuery = query
+        store.execute(query)
+        try? await store.enableBackgroundDelivery(for: type, frequency: .immediate)
+    }
+
     func fetchStepsToday() async -> Int {
         if !isAuthorized {
             await requestAuthorization()
@@ -503,6 +544,64 @@ final class HealthKitManager {
         )
 
         return total
+    }
+
+    func fetchStepSamplesToday() async -> [HealthKitStepSample] {
+        if !isAuthorized {
+            await requestAuthorization()
+        }
+
+        guard HKHealthStore.isHealthDataAvailable(),
+              let type = HKObjectType.quantityType(forIdentifier: .stepCount) else {
+            return []
+        }
+
+        let start = Calendar.current.startOfDay(for: Date())
+        let predicate = HKQuery.predicateForSamples(
+            withStart: start,
+            end: Date(),
+            options: .strictStartDate
+        )
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsCollectionQuery(
+                quantityType: type,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum,
+                anchorDate: start,
+                intervalComponents: DateComponents(minute: 1)
+            )
+
+            query.initialResultsHandler = { _, collection, error in
+                if let error {
+                    print("HealthKit step sample fetch error: \(error)")
+                    continuation.resume(returning: [])
+                    return
+                }
+
+                let unit = HKUnit.count()
+                var stepSamples: [HealthKitStepSample] = []
+
+                collection?.enumerateStatistics(from: start, to: Date()) { statistics, _ in
+                    let steps = Int(statistics.sumQuantity()?.doubleValue(for: unit) ?? 0)
+                    guard steps > 0 else { return }
+
+                    let startMilliseconds = Int(statistics.startDate.timeIntervalSince1970 * 1000)
+                    let endMilliseconds = Int(statistics.endDate.timeIntervalSince1970 * 1000)
+                    stepSamples.append(
+                        HealthKitStepSample(
+                            id: "\(startMilliseconds)-\(endMilliseconds)-\(steps)",
+                            startDate: statistics.startDate,
+                            endDate: statistics.endDate,
+                            steps: steps
+                        )
+                    )
+                }
+
+                continuation.resume(returning: stepSamples)
+            }
+
+            store.execute(query)
+        }
     }
 
     func fetchWaterToday() async -> Double {

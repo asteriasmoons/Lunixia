@@ -113,27 +113,33 @@ struct JournalBlockEditorPage: View {
                     .ignoresSafeArea()
             }
 
-            Group {
-                if let workingEntry {
-                    JournalBlockEditorView(
-                        entry: workingEntry,
-                        focusedBlockID: $focusedBlockID,
-                        identityHeader: AnyView(
-                            JournalIdentityEditorView(
-                                entry: workingEntry,
-                                pageTitleDraft: $pageTitleDraft,
-                                pageTagsDraft: $pageTagsDraft
+            VStack(spacing: 0) {
+                editorHeader
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
+                Group {
+                    if let workingEntry {
+                        JournalBlockEditorView(
+                            entry: workingEntry,
+                            focusedBlockID: $focusedBlockID,
+                            identityHeader: AnyView(
+                                JournalIdentityEditorView(
+                                    entry: workingEntry,
+                                    pageTitleDraft: $pageTitleDraft,
+                                    pageTagsDraft: $pageTagsDraft
+                                )
                             )
                         )
-                    )
-                    .frame(maxWidth: editorInnerPageMaxWidth, alignment: .top)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .scrollDismissesKeyboard(.interactively)
-                } else {
-                    Color.clear
+                        .frame(maxWidth: editorInnerPageMaxWidth, alignment: .top)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        .scrollDismissesKeyboard(.interactively)
+                    } else {
+                        Color.clear
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
             if showPremiumBanner {
                 VStack {
@@ -153,92 +159,8 @@ struct JournalBlockEditorPage: View {
                 .zIndex(100)
             }
         }
-        .navigationTitle(existingEntry == nil ? "New Entry" : "Edit Entry")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                VStack(spacing: 1) {
-                    Text(existingEntry == nil ? "New Entry" : "Edit Entry")
-                        .font(.system(size: 16, weight: .bold)).foregroundStyle(.white)
-                    Text(book.title)
-                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(LColors.textSecondary)
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 4) {
-                    Menu {
-                        Button {
-                            showBackgroundSettingsSheet = true
-                        } label: {
-                            Label("Background", systemImage: "photo")
-                        }
-                        Button {
-                            showInnerPageSettingsSheet = true
-                        } label: {
-                            Label("Inner Page", systemImage: "rectangle.inset.filled")
-                        }
-                        Button {
-                            if let hex = workingEntry?.textColorHex.trimmingCharacters(in: .whitespacesAndNewlines),
-                               !hex.isEmpty,
-                               let r = UInt8(hex.prefix(2), radix: 16),
-                               let g = UInt8(hex.dropFirst(2).prefix(2), radix: 16),
-                               let b = UInt8(hex.dropFirst(4).prefix(2), radix: 16) {
-                                textColorPickerSelection = Color(red: Double(r)/255, green: Double(g)/255, blue: Double(b)/255)
-                            } else {
-                                textColorPickerSelection = .white
-                            }
-                            showTextColorSheet = true
-                        } label: {
-                            Label("Text Color", systemImage: "textformat")
-                        }
-                        if focusedBlockSupportsColor, let block = focusedBlock {
-                            Button {
-                                loadBlockColors(from: currentBlockColorHex(for: block))
-                                showBlockColorSheet = true
-                            } label: {
-                                Label(focusedBlockColorLabel, systemImage: "paintpalette")
-                            }
-                        }
-                    } label: {
-                        Circle()
-                            .fill(Color.white.opacity(0.08))
-                            .frame(width: 34, height: 34)
-                            .overlay(
-                                Circle()
-                                    .stroke(resolvedToolbarColor.opacity(0.55), lineWidth: 1)
-                            )
-                            .overlay {
-                                Image("paintdrop")
-                                    .renderingMode(.template)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 15, height: 15)
-                                    .foregroundStyle(resolvedToolbarColor)
-                            }
-                    }
-                    .disabled(isCompletingAction || workingEntry == nil)
-                    .opacity((isCompletingAction || workingEntry == nil) ? 0.5 : 1)
-
-                    Button {
-                        saveAndClose()
-                    } label: {
-                        Text("Done")
-                            .font(.system(size: 14, weight: .bold, design: .rounded))
-                            .foregroundStyle(resolvedToolbarColor)
-                            .padding(.horizontal, 14)
-                            .frame(height: 34)
-                            .background(Color.white.opacity(0.08), in: Capsule())
-                            .overlay(
-                                Capsule()
-                                    .stroke(resolvedToolbarColor.opacity(0.55), lineWidth: 1)
-                            )
-                    }
-                    .disabled(isCompletingAction || workingEntry == nil)
-                    .opacity((isCompletingAction || workingEntry == nil) ? 0.5 : 1)
-                }
-            }
-        }
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showBlockColorSheet) {
             if let block = focusedBlock {
                 blockColorSheet(for: block)
@@ -323,6 +245,79 @@ struct JournalBlockEditorPage: View {
             cleanupEmptyNewEntryIfNeeded()
             isCompletingAction = false
         }
+    }
+
+    private var editorHeader: some View {
+        let disabled = isCompletingAction || workingEntry == nil
+
+        return HStack(spacing: 8) {
+            Button { dismiss() } label: {
+                editorCircle("chevleft")
+            }
+
+            Spacer()
+
+            Menu {
+                Button {
+                    showBackgroundSettingsSheet = true
+                } label: {
+                    Label("Background", systemImage: "photo")
+                }
+                Button {
+                    showInnerPageSettingsSheet = true
+                } label: {
+                    Label("Inner Page", systemImage: "rectangle.inset.filled")
+                }
+                Button {
+                    if let hex = workingEntry?.textColorHex.trimmingCharacters(in: .whitespacesAndNewlines),
+                       !hex.isEmpty,
+                       let r = UInt8(hex.prefix(2), radix: 16),
+                       let g = UInt8(hex.dropFirst(2).prefix(2), radix: 16),
+                       let b = UInt8(hex.dropFirst(4).prefix(2), radix: 16) {
+                        textColorPickerSelection = Color(red: Double(r)/255, green: Double(g)/255, blue: Double(b)/255)
+                    } else {
+                        textColorPickerSelection = .white
+                    }
+                    showTextColorSheet = true
+                } label: {
+                    Label("Text Color", systemImage: "textformat")
+                }
+                if focusedBlockSupportsColor, let block = focusedBlock {
+                    Button {
+                        loadBlockColors(from: currentBlockColorHex(for: block))
+                        showBlockColorSheet = true
+                    } label: {
+                        Label(focusedBlockColorLabel, systemImage: "paintpalette")
+                    }
+                }
+            } label: {
+                editorCircle("paintdrop")
+            }
+            .disabled(disabled)
+            .opacity(disabled ? 0.5 : 1)
+
+            Button { saveAndClose() } label: {
+                editorCircle("checkwavy")
+            }
+            .disabled(disabled)
+            .opacity(disabled ? 0.5 : 1)
+        }
+    }
+
+    private func editorCircle(_ asset: String) -> some View {
+        Circle()
+            .fill(.thinMaterial)
+            .frame(width: 34, height: 34)
+            .overlay(Circle().strokeBorder(resolvedToolbarColor.opacity(0.25), lineWidth: 0.5))
+            .overlay {
+                Image(asset)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 15, height: 15)
+                    .foregroundStyle(resolvedToolbarColor)
+            }
+            .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
     }
 
     private func prepareEntry() {

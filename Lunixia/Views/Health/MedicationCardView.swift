@@ -154,9 +154,15 @@ struct MedicationPageView: View {
                 }
                 
                 modelContext.insert(med)
-                try? modelContext.save()
+                guard saveMedicationChanges("add medication") else {
+                    return
+                }
                 
-                MedicationAutomationManager.run(in: modelContext)
+                MedicationAutomationManager.run(
+                    in: modelContext,
+                    shouldProcessRefills: false,
+                    shouldProcessAutoDecreases: false
+                )
                 MedicationNotificationManager.shared.reschedule(for: med)
                 
                 flash("Medication added")
@@ -176,9 +182,15 @@ struct MedicationPageView: View {
                 }
 
                 modelContext.insert(med)
-                try? modelContext.save()
+                guard saveMedicationChanges("add medication") else {
+                    return
+                }
 
-                MedicationAutomationManager.run(in: modelContext)
+                MedicationAutomationManager.run(
+                    in: modelContext,
+                    shouldProcessRefills: false,
+                    shouldProcessAutoDecreases: false
+                )
                 MedicationNotificationManager.shared.reschedule(for: med)
 
                 flash("Medication added")
@@ -198,9 +210,15 @@ struct MedicationPageView: View {
                         updated.lastAutoDecreaseDayKey = MedicationAutomationManager.dayKey(for: Date())
                     }
 
-                    try? modelContext.save()
+                    guard saveMedicationChanges("edit medication") else {
+                        return
+                    }
 
-                    MedicationAutomationManager.run(in: modelContext)
+                    MedicationAutomationManager.run(
+                        in: modelContext,
+                        shouldProcessRefills: false,
+                        shouldProcessAutoDecreases: false
+                    )
                     MedicationNotificationManager.shared.reschedule(for: updated)
 
                     flash("Medication updated")
@@ -221,9 +239,15 @@ struct MedicationPageView: View {
                         updated.lastAutoDecreaseDayKey = MedicationAutomationManager.dayKey(for: Date())
                     }
 
-                    try? modelContext.save()
+                    guard saveMedicationChanges("edit medication") else {
+                        return
+                    }
 
-                    MedicationAutomationManager.run(in: modelContext)
+                    MedicationAutomationManager.run(
+                        in: modelContext,
+                        shouldProcessRefills: false,
+                        shouldProcessAutoDecreases: false
+                    )
                     MedicationNotificationManager.shared.reschedule(for: updated)
 
                     flash("Medication updated")
@@ -257,7 +281,7 @@ struct MedicationPageView: View {
             if let med = selectedMed {
                 MedHistorySheet(medication: med, isPremium: isPremium) { entry in
                     modelContext.delete(entry)
-                    try? modelContext.save()
+                    _ = saveMedicationChanges("delete medication history entry")
                 }
             }
         }
@@ -268,7 +292,7 @@ struct MedicationPageView: View {
             if let med = selectedMed {
                 MedHistorySheet(medication: med, isPremium: isPremium) { entry in
                     modelContext.delete(entry)
-                    try? modelContext.save()
+                    _ = saveMedicationChanges("delete medication history entry")
                 }
             }
         }
@@ -278,7 +302,14 @@ struct MedicationPageView: View {
         )) {
             if let med = selectedMed {
                 MedDirectRefillSheet(medication: med) {
-                    try? modelContext.save()
+                    guard saveMedicationChanges("update refill date") else {
+                        return
+                    }
+                    MedicationAutomationManager.run(
+                        in: modelContext,
+                        shouldProcessRefills: false,
+                        shouldProcessAutoDecreases: false
+                    )
                     MedicationNotificationManager.shared.reschedule(for: med)
                     flash("Refill date updated")
                 }
@@ -290,7 +321,14 @@ struct MedicationPageView: View {
         )) {
             if let med = selectedMed {
                 MedDirectRefillSheet(medication: med) {
-                    try? modelContext.save()
+                    guard saveMedicationChanges("update refill date") else {
+                        return
+                    }
+                    MedicationAutomationManager.run(
+                        in: modelContext,
+                        shouldProcessRefills: false,
+                        shouldProcessAutoDecreases: false
+                    )
                     MedicationNotificationManager.shared.reschedule(for: med)
                     flash("Refill date updated")
                 }
@@ -306,12 +344,15 @@ struct MedicationPageView: View {
             if let med = selectedMed {
                 MedicationNotificationManager.shared.cancelAll(for: med)
                 modelContext.delete(med)
-                try? modelContext.save()
+                guard saveMedicationChanges("delete medication") else {
+                    return
+                }
                 selectedMed = nil
                 flash("Medication deleted")
             }
         }
         .task {
+            MedicationAutomationManager.run(in: modelContext)
             _ = await MedicationNotificationManager.shared.requestAuthorization()
         }
     }
@@ -516,22 +557,31 @@ struct MedicationPageView: View {
 
     private func takeDose(_ med: LunixiaMedication) {
         let doses = med.dosesToday
+        guard doses > 0 else {
+            flash("No dose scheduled for \(med.name) today")
+            return
+        }
+        let now = Date()
+        let todayKey = MedicationAutomationManager.dayKey(for: now)
         let previous = med.currentAmount
         let newAmount = max(0, med.currentAmount - doses)
         med.currentAmount = newAmount
-        med.lastTakenAt = Date()
-        med.updatedAt = Date()
+        med.lastTakenAt = now
+        med.updatedAt = now
 
         if med.autoDecreaseEnabled {
-            med.lastAutoDecreaseDayKey = MedicationAutomationManager.dayKey(for: Date())
+            med.lastAutoDecreaseDayKey = todayKey
         }
         modelContext.insert(LunixiaMedHistoryEntry(
             type: .taken,
             amountText: "\(previous) → \(newAmount)",
             details: doses > 1 ? "\(doses) doses marked as taken" : "Dose marked as taken",
+            effectiveDayKey: todayKey,
             medication: med
         ))
-        try? modelContext.save()
+        guard saveMedicationChanges("take medication dose") else {
+            return
+        }
         let dk = LunixiaPointsManager.dayKey()
         _ = try? LunixiaPointsManager.awardMedicationTaken(in: modelContext, medId: med.id.uuidString, dayKey: dk)
         flash(doses > 1 ? "\(doses) doses taken for \(med.name)" : "Dose taken for \(med.name)")
@@ -540,22 +590,47 @@ struct MedicationPageView: View {
     // MARK: - Inventory
 
     private func applyInventoryAction(_ action: InventoryAction, to med: LunixiaMedication) {
+        let now = Date()
+        let todayKey = MedicationAutomationManager.dayKey(for: now)
         let previous = med.currentAmount
         switch action {
         case .adjust(let delta): med.currentAmount = max(0, med.currentAmount + delta)
         case .setFull:           med.currentAmount = max(0, med.supplyAmount)
         }
-        med.updatedAt = Date()
+
+        if med.autoDecreaseEnabled {
+            med.lastAutoDecreaseDayKey = todayKey
+        }
+
+        med.updatedAt = now
         let details: String
         switch action {
         case .adjust(let d): details = d >= 0 ? "Manual inventory increase" : "Manual inventory decrease"
         case .setFull:       details = "Set inventory to full supply"
         }
-        modelContext.insert(LunixiaMedHistoryEntry(type: .edited, amountText: "\(previous) → \(med.currentAmount)", details: details, medication: med))
-        try? modelContext.save()
+        modelContext.insert(LunixiaMedHistoryEntry(
+            type: .edited,
+            amountText: "\(previous) → \(med.currentAmount)",
+            details: details,
+            effectiveDayKey: todayKey,
+            medication: med
+        ))
+        _ = saveMedicationChanges("edit medication inventory")
     }
 
     // MARK: - Banner
+
+    @discardableResult
+    private func saveMedicationChanges(_ context: String) -> Bool {
+        do {
+            try modelContext.save()
+            return true
+        } catch {
+            print("[MedicationPageView] Failed to \(context): \(error)")
+            flash("Medication changes could not be saved")
+            return false
+        }
+    }
 
     private func showPremiumRequiredMessage() {
         flash("Premium unlocks more medication cards.")
@@ -660,6 +735,7 @@ struct MedAddEditSheet: View {
     let mode: Mode
     let onSave: (LunixiaMedication) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @FocusState private var focusedInput: MedicationInputField?
 
     @State private var name          = ""
@@ -680,6 +756,7 @@ struct MedAddEditSheet: View {
     @State private var doseNotifyTimes: [DoseNotifyTime] = [DoseNotifyTime(hour: 9, minute: 0)]
     @State private var notifyRefill      = false
     @State private var daysBeforeRefill  = 3
+    @State private var didLoadInitialValues = false
 
     @State private var showRefillSheet   = false
     @State private var showScheduleSheet = false
@@ -793,10 +870,18 @@ struct MedAddEditSheet: View {
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("Done") {
+                Button {
                     focusedInput = nil
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                } label: {
+                    Text("Done")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(LGradients.header, in: Capsule(style: .continuous))
                 }
-                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .buttonStyle(.plain)
             }
         }
         .onAppear { loadIfEditing() }
@@ -1059,6 +1144,8 @@ struct MedAddEditSheet: View {
     // MARK: - Load / Save
 
     private func loadIfEditing() {
+        guard !didLoadInitialValues else { return }
+        didLoadInitialValues = true
         guard case .edit(let med) = mode else { return }
         name          = med.name
         notes         = med.notes
@@ -1104,6 +1191,17 @@ struct MedAddEditSheet: View {
                 notifyRefill: notifyRefill, daysBeforeRefillNotify: daysBeforeRefill
             ))
         case .edit(let med):
+            let previousCurrentAmount = med.currentAmount
+            let previousSupplyAmount = med.supplyAmount
+            let previousDaysSupply = med.daysSupply
+            let previousRefillDate = med.refillDate
+            let previousFrequency = med.scheduleFrequency
+            let previousWeeklyWeekday = med.weeklyWeekday
+            let previousTimesPerDay = med.timesPerDay
+            let previousDoseOverrides = med.doseScheduleOverrides
+            let now = Date()
+            let todayKey = MedicationAutomationManager.dayKey(for: now)
+
             med.name = trimmedName; med.notes = trimmedNotes; med.currentAmount = current
             med.supplyAmount = supply; med.daysSupply = days
             med.refillDate = includeRefillDate ? refillDate : nil
@@ -1116,14 +1214,111 @@ struct MedAddEditSheet: View {
 
             if !autoDecreaseEnabled {
                 med.lastAutoDecreaseDayKey = ""
+            } else {
+                med.lastAutoDecreaseDayKey = todayKey
             }
 
             med.notifyDose = notifyDose
             med.doseNotifyTimes = doseNotifyTimes
             med.notifyRefill = notifyRefill; med.daysBeforeRefillNotify = daysBeforeRefill
+
+            insertManualEditHistoryIfNeeded(
+                for: med,
+                previousCurrentAmount: previousCurrentAmount,
+                previousSupplyAmount: previousSupplyAmount,
+                previousDaysSupply: previousDaysSupply,
+                previousRefillDate: previousRefillDate,
+                previousFrequency: previousFrequency,
+                previousWeeklyWeekday: previousWeeklyWeekday,
+                previousTimesPerDay: previousTimesPerDay,
+                previousDoseOverrides: previousDoseOverrides,
+                currentAmount: current,
+                supplyAmount: supply,
+                daysSupply: days,
+                refillDate: med.refillDate,
+                scheduleFrequency: med.scheduleFrequency,
+                weeklyWeekday: med.weeklyWeekday,
+                timesPerDay: med.timesPerDay,
+                doseOverrides: med.doseScheduleOverrides,
+                effectiveDayKey: todayKey,
+                now: now
+            )
             onSave(med)
         }
         dismiss()
+    }
+
+    private func insertManualEditHistoryIfNeeded(
+        for medication: LunixiaMedication,
+        previousCurrentAmount: Int,
+        previousSupplyAmount: Int,
+        previousDaysSupply: Int,
+        previousRefillDate: Date?,
+        previousFrequency: LunixiaMedication.LunixiaMedicationScheduleFrequency,
+        previousWeeklyWeekday: Int,
+        previousTimesPerDay: Int,
+        previousDoseOverrides: [Int: Int],
+        currentAmount: Int,
+        supplyAmount: Int,
+        daysSupply: Int,
+        refillDate: Date?,
+        scheduleFrequency: LunixiaMedication.LunixiaMedicationScheduleFrequency,
+        weeklyWeekday: Int,
+        timesPerDay: Int,
+        doseOverrides: [Int: Int],
+        effectiveDayKey: String,
+        now: Date
+    ) {
+        var changes: [String] = []
+
+        if previousCurrentAmount != currentAmount {
+            changes.append("current amount")
+        }
+
+        if previousSupplyAmount != supplyAmount {
+            changes.append("supply amount")
+        }
+
+        if previousDaysSupply != daysSupply {
+            changes.append("days supply")
+        }
+
+        if !sameRefillDay(previousRefillDate, refillDate) {
+            changes.append("refill date")
+        }
+
+        if previousFrequency != scheduleFrequency ||
+            previousWeeklyWeekday != weeklyWeekday ||
+            previousTimesPerDay != timesPerDay ||
+            previousDoseOverrides != doseOverrides {
+            changes.append("dose schedule")
+        }
+
+        guard !changes.isEmpty else {
+            return
+        }
+
+        modelContext.insert(
+            LunixiaMedHistoryEntry(
+                type: .edited,
+                amountText: "\(previousCurrentAmount) → \(currentAmount)",
+                details: "Manual edit: \(changes.joined(separator: ", ")).",
+                effectiveDayKey: effectiveDayKey,
+                createdAt: now,
+                medication: medication
+            )
+        )
+    }
+
+    private func sameRefillDay(_ lhs: Date?, _ rhs: Date?) -> Bool {
+        switch (lhs, rhs) {
+        case (.none, .none):
+            return true
+        case let (.some(lhs), .some(rhs)):
+            return Calendar.current.isDate(lhs, inSameDayAs: rhs)
+        default:
+            return false
+        }
     }
     
     private func weekdayShortName(_ weekday: Int) -> String {
@@ -1730,6 +1925,7 @@ struct MedDirectRefillSheet: View {
     let medication: LunixiaMedication
     let onSave: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     @State private var hasRefillDate: Bool
     @State private var refillDate: Date
@@ -1790,9 +1986,28 @@ struct MedDirectRefillSheet: View {
                 Spacer()
 
                 medDoneButton(label: "Save Refill Date") {
+                    let previousRefillDate = medication.refillDate
+                    let previousAmount = medication.currentAmount
+                    let now = Date()
+                    let todayKey = MedicationAutomationManager.dayKey(for: now)
+
                     medication.refillDate = hasRefillDate ? refillDate : nil
                     medication.lastAutoRefillDayKey = ""
-                    medication.updatedAt = Date()
+                    medication.updatedAt = now
+
+                    if !sameRefillDay(previousRefillDate, medication.refillDate) {
+                        modelContext.insert(
+                            LunixiaMedHistoryEntry(
+                                type: .edited,
+                                amountText: "\(previousAmount) → \(previousAmount)",
+                                details: "Manual refill date updated.",
+                                effectiveDayKey: todayKey,
+                                createdAt: now,
+                                medication: medication
+                            )
+                        )
+                    }
+
                     onSave()
                     dismiss()
                 }
@@ -1800,6 +2015,17 @@ struct MedDirectRefillSheet: View {
             .padding(.horizontal, 20)
             .padding(.top, 20)
             .padding(.bottom, 32)
+        }
+    }
+
+    private func sameRefillDay(_ lhs: Date?, _ rhs: Date?) -> Bool {
+        switch (lhs, rhs) {
+        case (.none, .none):
+            return true
+        case let (.some(lhs), .some(rhs)):
+            return Calendar.current.isDate(lhs, inSameDayAs: rhs)
+        default:
+            return false
         }
     }
 }

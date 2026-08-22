@@ -185,7 +185,13 @@ struct NoteFontPicker: View {
 
 struct NoteFontSizeControl: View {
     @Binding var fontSize: Double
-    let font: NoteFontOption
+    // Must be the State's own projected binding ($draftFontID), not a plain value and
+    // not a hand-built Binding closure — both read the stale captured NotesView struct.
+    @Binding var fontID: String
+
+    private var font: NoteFontOption {
+        NoteFontOption.option(for: fontID)
+    }
 
     private let minimumSize = Note.minimumFontSize
     private let maximumSize = Note.maximumFontSize

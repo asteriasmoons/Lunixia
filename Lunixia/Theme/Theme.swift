@@ -10,19 +10,19 @@ import SwiftUI
 enum LColors {
     // Base
     static let bg = Color(lunixiaHex: "#07070a")
-    static let bgSoft = Color(lunixiaHex: "#07070a")
+    static let bgSoft = Color(lunixiaHex: "#020304")
     
     // Text
     static let textPrimary = Color.white
     static let textSecondary = Color(lunixiaHex: "#888888")
     
     // Accent
-    static let accent = Color(lunixiaHex: "#03dbfc")
-    static let accentHover = Color(lunixiaHex: "#7d19f7")
+    static let accent = Color(lunixiaHex: "#4388C5")
+    static let accentHover = Color(lunixiaHex: "#6111b8")
     static let accentGradient = LinearGradient(
         colors: [
-            Color(lunixiaHex: "#03dbfc"),
-            Color(lunixiaHex: "#7d19f7")
+            Color(lunixiaHex: "#4388C5"),
+            Color(lunixiaHex: "#6111b8")
         ],
         startPoint: .leading,
         endPoint: .trailing
@@ -30,8 +30,8 @@ enum LColors {
     
     // Status
     static let success = Color(lunixiaHex: "#e2ed8a")
-    static let danger = Color(lunixiaHex: "#dc3beb")
-    static let warning = Color(lunixiaHex: "#a92ce8")
+    static let danger = Color(lunixiaHex: "#6111b8")
+    static let warning = Color(lunixiaHex: "#4388C5")
     
     // Glass surfaces
     static let glassSurface = Color.white.opacity(0.06)
@@ -40,17 +40,18 @@ enum LColors {
     static let glassBorderStrong = Color.white.opacity(0.22)
     
     // Gradient colors
-    static let gradientPurple = Color(lunixiaHex: "#7d19f7")
-    static let gradientBlue = Color(lunixiaHex: "#03dbfc")
-    static let gradientCyan = Color(lunixiaHex: "#00dbff")
-    static let gradientYellow = Color(lunixiaHex: "#f6f684")
-    static let gradientDeepPurple = Color(lunixiaHex: "#8000fe")
+    static let gradientPurple = Color(lunixiaHex: "#4388C5")
+    static let gradientBlue = Color(lunixiaHex: "#6111b8")
+    static let gradientPink = Color(lunixiaHex: "#6111b8")
+    static let gradientCyan = Color(lunixiaHex: "#6111b8")
+    static let gradientYellow = Color(lunixiaHex: "#6111b8")
+    static let gradientDeepPurple = Color(lunixiaHex: "#4388C5")
     
     // Badge colors
-    static let badgeOnce = Color(lunixiaHex: "#66b8ff")
-    static let badgeDaily = Color(lunixiaHex: "#7d19f7")
+    static let badgeOnce = Color(lunixiaHex: "#6111b8")
+    static let badgeDaily = Color(lunixiaHex: "#4388C5")
     static let badgeWeekly = Color.white
-    static let badgeInterval = Color(lunixiaHex: "#02edd6")
+    static let badgeInterval = Color(lunixiaHex: "#6111b8")
 }
 
 // MARK: - Gradients
@@ -63,7 +64,10 @@ enum LGradients {
     )
     
     static let header = LinearGradient(
-        colors: [LColors.gradientPurple, LColors.gradientBlue],
+        colors: [
+            Color(lunixiaHex: "#4388C5"),
+            Color(lunixiaHex: "#6111b8")
+        ],
         startPoint: .leading,
         endPoint: .trailing
     )
@@ -76,21 +80,21 @@ enum LGradients {
     
     // Background ambient glows
     static let bgPurple = RadialGradient(
-        colors: [Color(lunixiaHex: "#8000fe").opacity(0.34), .clear],
+        colors: [Color(lunixiaHex: "#4388C5").opacity(0.34), .clear],
         center: UnitPoint(x: 0.28, y: 0.18),
         startRadius: 0,
         endRadius: 450
     )
     
     static let bgCyan = RadialGradient(
-        colors: [Color(lunixiaHex: "#00dbff").opacity(0.22), .clear],
+        colors: [Color(lunixiaHex: "#6111b8").opacity(0.30), .clear],
         center: UnitPoint(x: 0.76, y: 0.78),
         startRadius: 0,
         endRadius: 475
     )
     
     static let bgYellow = RadialGradient(
-        colors: [Color(lunixiaHex: "#f6f684").opacity(0.22), .clear],
+        colors: [Color(lunixiaHex: "#4388C5").opacity(0.20), .clear],
         center: UnitPoint(x: 0.58, y: 0.26),
         startRadius: 0,
         endRadius: 260

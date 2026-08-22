@@ -15,6 +15,7 @@ struct HealthTabView: View {
     @Query(sort: \VitalsEntry.timestamp, order: .reverse) private var vitalsEntries: [VitalsEntry]
     @Query(sort: \ExerciseEntry.timestamp, order: .reverse) private var exerciseEntries: [ExerciseEntry]
     @Query(sort: \WaterEntry.timestamp, order: .reverse) private var waterEntries: [WaterEntry]
+    @Query(sort: \HealthMetricHistoryEntry.timestamp, order: .reverse) private var healthMetricHistoryEntries: [HealthMetricHistoryEntry]
     @Query(sort: \NapEntry.startDate, order: .reverse) private var napEntries: [NapEntry]
     @Query private var goals: [HealthGoals]
 
@@ -22,10 +23,13 @@ struct HealthTabView: View {
     @State private var showExerciseLog = false
     @State private var showWaterLog = false
     @State private var showWaterClear = false
+    @State private var showWaterHistory = false
+    @State private var showStepsHistory = false
     @State private var inlineWaterAddText = ""
     @State private var inlineWaterClearText = ""
     @State private var isInlineWaterAddActive = false
     @State private var isInlineWaterClearActive = false
+    @FocusState private var focusedWaterInput: WaterInlineInputField?
     @State private var showGoalSheet = false
     @State private var selectedVitals: VitalsEntry? = nil
     @State private var selectedExercise: ExerciseEntry? = nil
@@ -37,6 +41,12 @@ struct HealthTabView: View {
     @State private var displayedHealthDay = Calendar.current.startOfDay(for: Date())
     @State private var todayHRVSDNN: Double = 0
     @State private var previousNightSleepHours: Double = 0
+
+    private enum WaterInlineInputField: Hashable {
+        case add
+        case clear
+    }
+
     private var isPremium: Bool {
         storeManager.isPremium
     }
@@ -54,6 +64,22 @@ struct HealthTabView: View {
 
     private var todayWaterOz: Double {
         max(localWaterOz, healthKitWaterOz)
+    }
+
+    private var waterMetricHistoryEntries: [HealthMetricHistoryEntry] {
+        healthMetricHistoryEntries.filter { $0.metric == .water }
+    }
+
+    private var stepsMetricHistoryEntries: [HealthMetricHistoryEntry] {
+        healthMetricHistoryEntries.filter { $0.metric == .steps }
+    }
+
+    private var hasWaterHistory: Bool {
+        !waterEntries.isEmpty || !waterMetricHistoryEntries.isEmpty
+    }
+
+    private var hasStepsHistory: Bool {
+        !stepsMetricHistoryEntries.isEmpty
     }
 
     private var todayExercises: [ExerciseEntry] {
@@ -168,10 +194,29 @@ private var shouldUseFullScreenSheets: Bool {
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
-                    .padding(.bottom, 16)
+                    .padding(.bottom, 10)
                     
                     ScrollView(.vertical, showsIndicators: false) {
                         VStack(spacing: 16) {
+
+                            // MARK: Medications and Symptoms shortcuts
+                            HStack(spacing: 12) {
+                                NavigationLink(destination: MedicationPageView()) {
+                                    medicationsEntryCard
+                                }
+                                .buttonStyle(.plain)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 108)
+
+                                NavigationLink(destination: SymptomLoggerView()) {
+                                    symptomLoggerEntryCard
+                                }
+                                .buttonStyle(.plain)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 108)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.horizontal, 16)
                             
                             // MARK: Body & Emotional State card
                             bodyEmotionalStateCard
@@ -206,23 +251,13 @@ private var shouldUseFullScreenSheets: Bool {
                             stepsCard
                                 .padding(.horizontal, 16)
                             
-                            // MARK: Medications card
-                            NavigationLink(destination: MedicationPageView()) {
-                                medicationsEntryCard
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, 16)
-                            
-                            // MARK: Symptom Logger card
-                            NavigationLink(destination: SymptomLoggerView()) {
-                                symptomLoggerEntryCard
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, 16)
-                            
                             Spacer(minLength: 120)
                         }
-                        .padding(.top, 4)
+                        .padding(.top, 0)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        dismissInlineWaterControls()
                     }
                 }
             }
@@ -246,6 +281,12 @@ private var shouldUseFullScreenSheets: Bool {
             .modifier(AdaptiveBooleanHealthSheet(isPresented: $showWaterClear, useFullScreen: shouldUseFullScreenSheets) {
                 waterClearSheetContent
             })
+            .modifier(AdaptiveBooleanHealthSheet(isPresented: $showWaterHistory, useFullScreen: shouldUseFullScreenSheets) {
+                waterHistorySheetContent
+            })
+            .modifier(AdaptiveBooleanHealthSheet(isPresented: $showStepsHistory, useFullScreen: shouldUseFullScreenSheets) {
+                stepsHistorySheetContent
+            })
             .modifier(AdaptiveBooleanHealthSheet(isPresented: $showGoalSheet, useFullScreen: shouldUseFullScreenSheets) {
                 goalSheetContent
             })
@@ -256,15 +297,22 @@ private var shouldUseFullScreenSheets: Bool {
                 exerciseDetailSheetContent(entry)
             })
             .task {
-               ensureGoalsExist()
+                refreshMedicationAutomation()
+                ensureGoalsExist()
                 resetDisplayedHealthTotalsIfNeeded()
                 await refreshHealthKitTotals()
+                await HealthKitManager.shared.startStepUpdates {
+                    Task { @MainActor in
+                        await refreshHealthKitTotals()
+                    }
+                }
                 if let latest = vitalsEntries.first {
                    HealthKitManager.shared.saveVitalsWidgetSnapshot(from: latest)
                  }
-             }
+            }
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase == .active else { return }
+                refreshMedicationAutomation()
                 resetDisplayedHealthTotalsIfNeeded()
                 refreshHealthKitTotalsSoon()
                 if let latest = vitalsEntries.first {
@@ -272,6 +320,7 @@ private var shouldUseFullScreenSheets: Bool {
                 }
             }
             .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
+                refreshMedicationAutomation()
                 resetDisplayedHealthTotalsIfNeeded()
             }
         } // end NavigationStack
@@ -286,27 +335,35 @@ private var shouldUseFullScreenSheets: Bool {
                 cardLabel(icon: "heartfill", text: "Body & Emotional State")
 
                 HStack(alignment: .top, spacing: 12) {
-                    stateRingTile(
+                    stateTile(
                         title: "Body State",
                         state: bodyState.title,
                         message: bodyState.message,
-                        progress: bodyState.progress
+                        accent: bodyStateAccent
                     )
 
-                    stateRingTile(
+                    stateTile(
                         title: "Emotional State",
                         state: emotionalState.title,
                         message: emotionalState.message,
-                        progress: emotionalState.progress
+                        accent: emotionalStateAccent
                     )
                 }
 
                 Text(todayHRVSDNN > 0 ? "Based on today’s HRV rhythm." : "HRV will appear after HealthKit has a reading for today.")
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(LColors.textSecondary.opacity(0.55))
-                    .frame(maxWidth: .infinity, alignment: .center)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+    }
+
+    private var bodyStateAccent: Color {
+        Color(lunixiaHex: "#4388C5")
+    }
+
+    private var emotionalStateAccent: Color {
+        Color(lunixiaHex: "#6111b8")
     }
 
     private var bodyState: HealthStateInfo {
@@ -355,58 +412,68 @@ private var shouldUseFullScreenSheets: Bool {
         messages: (high: String, steady: String, soft: String, low: String, waiting: String)
     ) -> HealthStateInfo {
         guard hrv > 0 else {
-            return HealthStateInfo(title: labels.waiting, message: messages.waiting, progress: 0.18)
+            return HealthStateInfo(title: labels.waiting, message: messages.waiting)
         }
 
         switch hrv {
         case 70...:
-            return HealthStateInfo(title: labels.high, message: messages.high, progress: 0.92)
+            return HealthStateInfo(title: labels.high, message: messages.high)
         case 45..<70:
-            return HealthStateInfo(title: labels.steady, message: messages.steady, progress: 0.72)
+            return HealthStateInfo(title: labels.steady, message: messages.steady)
         case 25..<45:
-            return HealthStateInfo(title: labels.soft, message: messages.soft, progress: 0.48)
+            return HealthStateInfo(title: labels.soft, message: messages.soft)
         default:
-            return HealthStateInfo(title: labels.low, message: messages.low, progress: 0.28)
+            return HealthStateInfo(title: labels.low, message: messages.low)
         }
     }
 
     @ViewBuilder
-    private func stateRingTile(title: String, state: String, message: String, progress: Double) -> some View {
-        VStack(spacing: 8) {
-            DottedStateRing(progress: progress)
-                .frame(width: 58, height: 58)
+    private func stateTile(title: String, state: String, message: String, accent: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.system(size: 10, weight: .heavy, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(1)
 
-            VStack(spacing: 3) {
-                Text(title)
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(LColors.textSecondary)
+            Text(state)
+                .font(.system(size: 15, weight: .black, design: .rounded))
+                .foregroundStyle(accent)
+                .shadow(color: accent.opacity(0.22), radius: 4, y: 1)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
 
-                Text(state)
-                    .font(.system(size: 15, weight: .black, design: .rounded))
-                    .foregroundStyle(bodyEmotionMint)
-                    .shadow(color: bodyEmotionMint.opacity(0.35), radius: 5, y: 1)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-
-                Text(message)
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .foregroundStyle(LColors.textSecondary.opacity(0.65))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(3)
-                    .minimumScaleFactor(0.8)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text(message)
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundStyle(LColors.textSecondary.opacity(0.65))
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, minHeight: 150)
+        .frame(maxWidth: .infinity, minHeight: 62, alignment: .topLeading)
         .padding(.horizontal, 10)
-        .padding(.vertical, 12)
-        .background(
+        .padding(.top, 10)
+        .padding(.bottom, 7)
+        .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(LColors.glassSurface)
-        )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    accent.opacity(0.055),
+                                    accent.opacity(0.026),
+                                    Color.white.opacity(0.018)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
+        }
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(LColors.glassBorder.opacity(0.7), lineWidth: 1)
+                .strokeBorder(LColors.glassBorder.opacity(0.65), lineWidth: 1)
         )
     }
 
@@ -551,15 +618,31 @@ private var shouldUseFullScreenSheets: Bool {
                 HStack {
                     cardLabel(icon: "bottle", text: "Water")
                     Spacer()
-                    Button { showWaterLog = true } label: {
-                        Image("addwavy")
-                            .renderingMode(.template)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 18, height: 18)
-                            .foregroundStyle(LGradients.header)
+                    HStack(spacing: 10) {
+                        if hasWaterHistory {
+                            Button {
+                                showWaterHistory = true
+                            } label: {
+                                Image("clockfill")
+                                    .renderingMode(.template)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 16, height: 16)
+                                    .foregroundStyle(LColors.textSecondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        Button { showWaterLog = true } label: {
+                            Image("addwavy")
+                                .renderingMode(.template)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 18, height: 18)
+                                .foregroundStyle(LGradients.header)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
 
                 // Progress bar
@@ -585,13 +668,16 @@ private var shouldUseFullScreenSheets: Bool {
                             text: $inlineWaterAddText,
                             placeholder: "Add oz",
                             icon: "addwavy",
+                            focus: .add,
                             action: logInlineWaterAmount
                         )
                     } else {
                         waterCustomButton(icon: "addwavy") {
                             withAnimation(.easeInOut(duration: 0.18)) {
                                 isInlineWaterAddActive = true
+                                isInlineWaterClearActive = false
                             }
+                            focusedWaterInput = .add
                         }
                     }
 
@@ -600,13 +686,16 @@ private var shouldUseFullScreenSheets: Bool {
                             text: $inlineWaterClearText,
                             placeholder: "Clear oz",
                             icon: "minuswavy",
+                            focus: .clear,
                             action: clearInlineWaterAmount
                         )
                     } else {
                         waterCustomButton(icon: "minuswavy") {
                             withAnimation(.easeInOut(duration: 0.18)) {
+                                isInlineWaterAddActive = false
                                 isInlineWaterClearActive = true
                             }
+                            focusedWaterInput = .clear
                         }
                     }
                 }
@@ -621,7 +710,23 @@ private var shouldUseFullScreenSheets: Bool {
     private var stepsCard: some View {
         GlassCard(padding: 18) {
             VStack(alignment: .leading, spacing: 14) {
-                cardLabel(icon: "shoe", text: "Steps")
+                HStack {
+                    cardLabel(icon: "shoe", text: "Steps")
+                    Spacer()
+                    if hasStepsHistory {
+                        Button {
+                            showStepsHistory = true
+                        } label: {
+                            Image("clockfill")
+                                .renderingMode(.template)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 16, height: 16)
+                                .foregroundStyle(LColors.textSecondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
 
                 let progress = min(Double(todaySteps) / Double(currentGoals.dailySteps), 1.0)
 
@@ -649,54 +754,67 @@ private var shouldUseFullScreenSheets: Bool {
     // MARK: - Medications Entry Card
 
     private var medicationsEntryCard: some View {
-        GlassCard(padding: 18) {
-            HStack(spacing: 9) {
-                Image("medication")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 22, height: 22)
-                    .foregroundStyle(LGradients.header)
-                Text("Medications")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundStyle(LColors.textSecondary)
-                Spacer()
-                Image("chevright")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 16, height: 16)
-                    .foregroundStyle(LColors.textSecondary.opacity(0.45))
-            }
-        }
+        topNavigationCard(icon: "doublepills", title: "Medications")
     }
 
     // MARK: - Symptom Logger Entry Card
 
     private var symptomLoggerEntryCard: some View {
-        GlassCard(padding: 18) {
-            HStack(spacing: 9) {
-                Image("medsymbol")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 22, height: 22)
-                    .foregroundStyle(LGradients.header)
-                Text("Symptom Log")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundStyle(LColors.textSecondary)
-                Spacer()
-                Image("chevright")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 16, height: 16)
-                    .foregroundStyle(LColors.textSecondary.opacity(0.45))
+        topNavigationCard(icon: "medhouse", title: "Symptom Log")
+    }
+
+    private func topNavigationCard(icon: String, title: String) -> some View {
+        GlassCard(padding: 8) {
+            VStack(spacing: 7) {
+                ZStack {
+                    Circle()
+                        .fill(LColors.glassSurface2)
+                        .overlay(
+                            Circle()
+                                .strokeBorder(LColors.glassBorder.opacity(0.85), lineWidth: 1)
+                        )
+                        .overlay(
+                            Circle()
+                                .strokeBorder(LGradients.header, lineWidth: 1)
+                                .opacity(0.35)
+                        )
+
+                    Image(icon)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 32, height: 32)
+                        .foregroundStyle(LGradients.header)
+                }
+                .frame(width: 42, height: 42)
+
+                Text(title)
+                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Helpers
+
+    private func refreshMedicationAutomation() {
+        MedicationAutomationManager.run(in: modelContext)
+    }
+
+    private func dismissInlineWaterControls() {
+        guard isInlineWaterAddActive || isInlineWaterClearActive || focusedWaterInput != nil else { return }
+
+        focusedWaterInput = nil
+        withAnimation(.easeInOut(duration: 0.18)) {
+            isInlineWaterAddActive = false
+            isInlineWaterClearActive = false
+        }
+    }
     
     private func vitalsDetailSheetContent(_ entry: VitalsEntry) -> some View {
         VitalsDetailView(entry: entry)
@@ -759,13 +877,20 @@ private var shouldUseFullScreenSheets: Bool {
     }
 
     private func handleWaterLogSave(_ oz: Double) {
+        let previousWaterOz = todayWaterOz
         let entry = WaterEntry(oz: oz)
         modelContext.insert(entry)
         try? modelContext.save()
         writeWaterToHealthKit(oz)
         checkWaterGoalCelebration(
-            previousWaterOz: max(localWaterOz - oz, healthKitWaterOz),
+            previousWaterOz: previousWaterOz,
             addedWaterOz: oz
+        )
+        HealthHistoryManager.recordWaterCompletionIfNeeded(
+            in: modelContext,
+            totalOz: previousWaterOz + oz,
+            goalOz: currentGoals.dailyWaterOz,
+            at: entry.timestamp
         )
         refreshHealthKitTotalsSoon()
         _ = try? LunixiaPointsManager.awardWaterLog(
@@ -781,10 +906,27 @@ private var shouldUseFullScreenSheets: Bool {
         }
     }
 
+    private var waterHistorySheetContent: some View {
+        WaterHistoryView()
+    }
+
+    private var stepsHistorySheetContent: some View {
+        StepsHistoryView()
+    }
+
     private func handleWaterClear(_ oz: Double) {
-        clearWaterAmount(oz)
+        let previousWaterOz = todayWaterOz
+        let clearedOz = min(max(oz, 0), previousWaterOz)
+        clearWaterAmount(clearedOz)
+        HealthHistoryManager.recordWaterCleared(
+            in: modelContext,
+            amountOz: clearedOz,
+            previousTotalOz: previousWaterOz,
+            currentTotalOz: max(0, previousWaterOz - clearedOz),
+            goalOz: currentGoals.dailyWaterOz
+        )
         refreshHealthKitTotalsSoon()
-        flash("\(Int(oz))oz cleared!")
+        flash("\(Int(clearedOz))oz cleared!")
     }
     
     private var goalSheetContent: some View {
@@ -859,6 +1001,7 @@ private var shouldUseFullScreenSheets: Bool {
         text: Binding<String>,
         placeholder: String,
         icon: String,
+        focus: WaterInlineInputField,
         action: @escaping () -> Void
     ) -> some View {
         HStack(spacing: 8) {
@@ -869,6 +1012,7 @@ private var shouldUseFullScreenSheets: Bool {
                 .multilineTextAlignment(.center)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
+                .focused($focusedWaterInput, equals: focus)
 
             Button(action: action) {
                 Image(icon)
@@ -966,18 +1110,19 @@ private var shouldUseFullScreenSheets: Bool {
 
     private func refreshHealthKitTotals() async {
         async let steps = HealthKitManager.shared.fetchStepsToday()
+        async let stepSamples = HealthKitManager.shared.fetchStepSamplesToday()
         async let water = HealthKitManager.shared.fetchWaterToday()
         async let hrv = HealthKitManager.shared.fetchHRVToday()
         async let sleep = HealthKitManager.shared.fetchSleepLastNight()
 
-        let totals = await (steps, water, hrv, sleep)
+        let totals = await (steps, stepSamples, water, hrv, sleep)
 
         await MainActor.run {
             displayedHealthDay = Calendar.current.startOfDay(for: Date())
             todaySteps = totals.0
-            healthKitWaterOz = totals.1
-            todayHRVSDNN = totals.2
-            previousNightSleepHours = totals.3
+            healthKitWaterOz = totals.2
+            todayHRVSDNN = totals.3
+            previousNightSleepHours = totals.4
 
             // Always write the correct goals into the widget snapshot
             HealthKitManager.shared.saveHealthWidgetGoals(
@@ -989,27 +1134,51 @@ private var shouldUseFullScreenSheets: Bool {
 
             // Water goal points are awarded from refreshed totals.
             let waterGoal = currentGoals.dailyWaterOz
-            if waterGoal > 0 && max(localWaterOz, totals.1) >= Double(waterGoal) {
+            let waterTotal = max(localWaterOz, totals.2)
+            if waterGoal > 0 && waterTotal >= Double(waterGoal) {
                 _ = try? LunixiaPointsManager.awardWaterGoal(in: modelContext, dayKey: dk)
+                HealthHistoryManager.recordWaterCompletionIfNeeded(
+                    in: modelContext,
+                    totalOz: waterTotal,
+                    goalOz: waterGoal
+                )
             }
 
             // Step goal
             let stepGoal = currentGoals.dailySteps
+            HealthHistoryManager.recordStepSamples(
+                totals.1,
+                in: modelContext,
+                totalSteps: totals.0,
+                goalSteps: stepGoal
+            )
             if stepGoal > 0 && totals.0 >= stepGoal {
                 _ = try? LunixiaPointsManager.awardStepGoal(in: modelContext, dayKey: dk)
             }
+            _ = HealthHistoryManager.recordStepCompletionIfNeeded(
+                in: modelContext,
+                steps: totals.0,
+                goalSteps: stepGoal
+            )
         }
     }
     
     private func logInlineWaterAmount() {
         guard let oz = Double(inlineWaterAddText), oz > 0 else { return }
+        let previousWaterOz = todayWaterOz
         let entry = WaterEntry(oz: oz)
         modelContext.insert(entry)
         try? modelContext.save()
         writeWaterToHealthKit(oz)
         checkWaterGoalCelebration(
-            previousWaterOz: max(localWaterOz - oz, healthKitWaterOz),
+            previousWaterOz: previousWaterOz,
             addedWaterOz: oz
+        )
+        HealthHistoryManager.recordWaterCompletionIfNeeded(
+            in: modelContext,
+            totalOz: previousWaterOz + oz,
+            goalOz: currentGoals.dailyWaterOz,
+            at: entry.timestamp
         )
         refreshHealthKitTotalsSoon()
         _ = try? LunixiaPointsManager.awardWaterLog(in: modelContext, entryId: entry.id.uuidString)
@@ -1022,13 +1191,22 @@ private var shouldUseFullScreenSheets: Bool {
 
     private func clearInlineWaterAmount() {
         guard let oz = Double(inlineWaterClearText), oz > 0 else { return }
-        clearWaterAmount(oz)
+        let previousWaterOz = todayWaterOz
+        let clearedOz = min(max(oz, 0), previousWaterOz)
+        clearWaterAmount(clearedOz)
+        HealthHistoryManager.recordWaterCleared(
+            in: modelContext,
+            amountOz: clearedOz,
+            previousTotalOz: previousWaterOz,
+            currentTotalOz: max(0, previousWaterOz - clearedOz),
+            goalOz: currentGoals.dailyWaterOz
+        )
         refreshHealthKitTotalsSoon()
         inlineWaterClearText = ""
         withAnimation(.easeInOut(duration: 0.18)) {
             isInlineWaterClearActive = false
         }
-        flash("\(Int(oz))oz cleared!")
+        flash("\(Int(clearedOz))oz cleared!")
     }
 
     private func checkWaterGoalCelebration(previousWaterOz: Double, addedWaterOz: Double) {
@@ -1161,46 +1339,9 @@ private var shouldUseFullScreenSheets: Bool {
         }
     }
 }
-private let bodyEmotionMint = Color(red: 0.3176, green: 1.0, blue: 0.8902)
-
 private struct HealthStateInfo {
     let title: String
     let message: String
-    let progress: Double
-}
-
-private struct DottedStateRing: View {
-    let progress: Double
-
-    private let dotCount = 30
-    private let dotSize: CGFloat = 5.25
-
-    var body: some View {
-        GeometryReader { geo in
-            let size = min(geo.size.width, geo.size.height)
-            let radius = (size / 2) - dotSize
-            let filledDots = Int((Double(dotCount) * min(max(progress, 0), 1)).rounded())
-
-            ZStack {
-                ForEach(0..<dotCount, id: \.self) { index in
-                    let angle = Double(index) / Double(dotCount) * 360 - 90
-                    let radians = angle * .pi / 180
-                    let x = cos(radians) * radius
-                    let y = sin(radians) * radius
-
-                    Circle()
-                        .fill(index < filledDots ? AnyShapeStyle(bodyEmotionMint) : AnyShapeStyle(LColors.glassSurface2))
-                        .frame(width: dotSize, height: dotSize)
-                        .position(x: size / 2 + x, y: size / 2 + y)
-                }
-
-                Circle()
-                    .fill(LColors.glassSurface.opacity(0.72))
-                    .frame(width: size * 0.58, height: size * 0.58)
-            }
-            .frame(width: size, height: size)
-        }
-    }
 }
 
 // MARK: - Water Clear Sheet

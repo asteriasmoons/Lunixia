@@ -240,6 +240,8 @@ final class LunixiaMedHistoryEntry {
     var typeRaw: String = "taken"
     var amountText: String = ""
     var details: String = ""
+    var effectiveDayKey: String = ""
+    var automationKey: String = ""
     var createdAt: Date = Date()
     var medication: LunixiaMedication?
 
@@ -258,6 +260,8 @@ final class LunixiaMedHistoryEntry {
         type: EntryType,
         amountText: String,
         details: String,
+        effectiveDayKey: String = "",
+        automationKey: String = "",
         createdAt: Date = Date(),
         medication: LunixiaMedication? = nil
     ) {
@@ -265,6 +269,8 @@ final class LunixiaMedHistoryEntry {
         self.typeRaw = type.rawValue
         self.amountText = amountText
         self.details = details
+        self.effectiveDayKey = effectiveDayKey
+        self.automationKey = automationKey
         self.createdAt = createdAt
         self.medication = medication
     }

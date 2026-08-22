@@ -22,7 +22,7 @@ final class JournalPromptService {
 
     private init() {}
 
-    private let baseURL = "https://appapi.vox.com.im"
+    private let baseURL = "https://appapi.voxiverse.ink"
 
     func generatePrompt(userId: String, modelContext: ModelContext) async throws -> JournalPromptResponse {
         let formatter = DateFormatter()

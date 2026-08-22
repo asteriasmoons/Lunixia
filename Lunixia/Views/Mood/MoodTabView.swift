@@ -21,6 +21,7 @@ struct MoodTabView: View {
     @State private var showChat = false
     @State private var showMoodStats = false
     @State private var showCooldownAlert = false
+    @State private var visibleHistoryCount = 4
     
     @State private var showPremiumBanner = false
     @State private var premiumBannerMessage = ""
@@ -647,13 +648,53 @@ private var shouldUseFullScreenSheets: Bool {
         if visibleHistoryEntries.isEmpty {
             emptyState(message: "Your mood logs will appear here")
         } else {
+            let displayedEntries = Array(visibleHistoryEntries.prefix(visibleHistoryCount))
+
             VStack(spacing: 12) {
-                ForEach(visibleHistoryEntries) { entry in
+                ForEach(displayedEntries) { entry in
                     MoodLogCard(
                         entry: entry,
                         onTap: { selectedEntry = entry },
                         onDelete: { deleteMoodEntry(entry) }
                     )
+                }
+
+                if visibleHistoryCount > 4 {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            visibleHistoryCount = max(4, visibleHistoryCount - 4)
+                        }
+                    } label: {
+                        Text("See Less")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundStyle(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 11)
+                            .background(
+                                Capsule()
+                                    .fill(LGradients.header)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if visibleHistoryCount < visibleHistoryEntries.count {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            visibleHistoryCount = min(visibleHistoryEntries.count, visibleHistoryCount + 4)
+                        }
+                    } label: {
+                        Text("Load More")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundStyle(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 11)
+                            .background(
+                                Capsule()
+                                    .fill(LGradients.header)
+                            )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }

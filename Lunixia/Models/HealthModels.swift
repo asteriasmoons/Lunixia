@@ -73,6 +73,71 @@ final class WaterEntry {
     }
 }
 
+// MARK: - Health Metric History
+
+@Model
+final class HealthMetricHistoryEntry {
+    var id: UUID = UUID()
+    var metricRaw: String = "water"
+    var eventRaw: String = "logged"
+    var dayKey: String = ""
+    var eventKey: String = ""
+    var timestamp: Date = Date.now
+    var amount: Double = 0
+    var previousValue: Double = 0
+    var currentValue: Double = 0
+    var goalValue: Double = 0
+    var details: String = ""
+
+    enum Metric: String, Codable {
+        case water
+        case steps
+    }
+
+    enum EventType: String, Codable {
+        case logged
+        case cleared
+        case sample
+        case snapshot
+        case completed
+    }
+
+    var metric: Metric {
+        get { Metric(rawValue: metricRaw) ?? .water }
+        set { metricRaw = newValue.rawValue }
+    }
+
+    var event: EventType {
+        get { EventType(rawValue: eventRaw) ?? .logged }
+        set { eventRaw = newValue.rawValue }
+    }
+
+    init(
+        metric: Metric,
+        event: EventType,
+        dayKey: String,
+        eventKey: String,
+        timestamp: Date = .now,
+        amount: Double = 0,
+        previousValue: Double = 0,
+        currentValue: Double = 0,
+        goalValue: Double = 0,
+        details: String = ""
+    ) {
+        self.id = UUID()
+        self.metricRaw = metric.rawValue
+        self.eventRaw = event.rawValue
+        self.dayKey = dayKey
+        self.eventKey = eventKey
+        self.timestamp = timestamp
+        self.amount = amount
+        self.previousValue = previousValue
+        self.currentValue = currentValue
+        self.goalValue = goalValue
+        self.details = details
+    }
+}
+
 // MARK: - Health Goals
 
 @Model

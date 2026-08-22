@@ -28,10 +28,26 @@ struct LogWaterShortcutIntent: AppIntent {
 
         try await MainActor.run {
             let context = ModelContext(LunixiaApp.sharedModelContainer)
+            let today = Calendar.current.startOfDay(for: Date())
+            let goals = try context.fetch(FetchDescriptor<HealthGoals>())
+            let waterGoal = goals.first?.dailyWaterOz ?? 64
+            let existingWaterEntries = try context.fetch(
+                FetchDescriptor<WaterEntry>(
+                    predicate: #Predicate { $0.timestamp >= today }
+                )
+            )
+            let existingWaterOz = existingWaterEntries.reduce(0) { $0 + $1.oz }
 
             let entry = WaterEntry(oz: amount)
 
             context.insert(entry)
+
+            HealthHistoryManager.recordWaterCompletionIfNeeded(
+                in: context,
+                totalOz: existingWaterOz + amount,
+                goalOz: waterGoal,
+                at: entry.timestamp
+            )
 
             _ = try? LunixiaPointsManager.awardWaterLog(
                 in: context,

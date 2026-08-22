@@ -23,7 +23,7 @@ struct ChatMessage: Identifiable, Equatable {
 final class MoodChatService {
 
     // Replace with your deployed lystaria-api base URL
-    private let baseURL = "https://appapi.vox.com.im/api/mood/chat"
+    private let baseURL = "https://appapi.voxiverse.ink/api/mood/chat"
 
     func send(messages: [ChatMessage]) async throws -> String {
         guard let url = URL(string: baseURL) else {

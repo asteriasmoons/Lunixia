@@ -35,6 +35,8 @@ enum LunixiaLimitsManager {
 
     static let freeExerciseLogsPerDayLimit: Int = 2
     static let freeExerciseHistoryDaysLimit: Int = 7
+    static let freeWaterHistoryDaysLimit: Int = 7
+    static let freeStepsHistoryDaysLimit: Int = 7
 
     static let freeMedicationCardLimit: Int = 4
     static let freeMedicationHistoryDaysLimit: Int = 7
@@ -80,6 +82,14 @@ enum LunixiaLimitsManager {
 
     static func exerciseHistoryDaysLimit(isPremium: Bool) -> Int {
         isPremium ? premiumUnlimitedLimit : freeExerciseHistoryDaysLimit
+    }
+
+    static func waterHistoryDaysLimit(isPremium: Bool) -> Int {
+        isPremium ? premiumUnlimitedLimit : freeWaterHistoryDaysLimit
+    }
+
+    static func stepsHistoryDaysLimit(isPremium: Bool) -> Int {
+        isPremium ? premiumUnlimitedLimit : freeStepsHistoryDaysLimit
     }
 
     static func medicationCardLimit(isPremium: Bool) -> Int {

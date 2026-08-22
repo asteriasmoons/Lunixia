@@ -5,6 +5,7 @@
 
 import AppIntents
 import CoreText
+import Foundation
 import SwiftUI
 import WidgetKit
 
@@ -14,13 +15,172 @@ struct LunixiaStickyNoteWidgetChecklistItem: Codable, Identifiable, Equatable {
     var id: UUID
     var title: String
     var isCompleted: Bool
+    /// Group 1 is the original single list. Snapshots written before groups existed have
+    /// no value here, so it is decoded leniently rather than failing the whole snapshot.
+    var group: Int = 1
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, isCompleted, group
+    }
+
+    init(id: UUID, title: String, isCompleted: Bool, group: Int = 1) {
+        self.id = id
+        self.title = title
+        self.isCompleted = isCompleted
+        self.group = group
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        isCompleted = try container.decode(Bool.self, forKey: .isCompleted)
+        group = try container.decodeIfPresent(Int.self, forKey: .group) ?? 1
+    }
+}
+
+enum LunixiaStickyNoteWidgetListItemKind: String, Codable, Equatable {
+    case bullet
+    case numbered
+}
+
+struct LunixiaStickyNoteWidgetListItem: Codable, Identifiable, Equatable {
+    var id: UUID
+    var title: String
+    var kind: LunixiaStickyNoteWidgetListItemKind
+    /// See LunixiaStickyNoteWidgetChecklistItem.group.
+    var group: Int = 1
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, kind, group
+    }
+
+    init(id: UUID, title: String, kind: LunixiaStickyNoteWidgetListItemKind, group: Int = 1) {
+        self.id = id
+        self.title = title
+        self.kind = kind
+        self.group = group
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        kind = try container.decode(LunixiaStickyNoteWidgetListItemKind.self, forKey: .kind)
+        group = try container.decodeIfPresent(Int.self, forKey: .group) ?? 1
+    }
+}
+
+private enum StickyNoteWidgetPlacementType: String, CaseIterable, Hashable {
+    case bullets
+    case checklist
+    case numbers
+
+    var tokenKeyword: String {
+        switch self {
+        case .bullets: return "BULLETS"
+        case .checklist: return "CHECKLIST"
+        case .numbers: return "NUMBERS"
+        }
+    }
+
+    var token: String { token(group: 1) }
+
+    /// Group 1 keeps the original unnumbered token, matching Note.token(group:).
+    func token(group: Int) -> String {
+        group <= 1 ? "[[ \(tokenKeyword) ]]" : "[[ \(tokenKeyword) \(group) ]]"
+    }
+}
+
+private struct StickyNoteWidgetPlacement: Equatable {
+    let type: StickyNoteWidgetPlacementType
+    let group: Int
+    let range: Range<String.Index>
+}
+
+/// Mirrors Note.placements(in:) / Note.strippingPlacementTokens(from:) in the app target.
+private enum StickyNoteWidgetTokenParser {
+    private static let regex = try? NSRegularExpression(
+        pattern: "\\[\\[ (BULLETS|CHECKLIST|NUMBERS)(?: (\\d+))? \\]\\]"
+    )
+
+    static func placements(in content: String) -> [StickyNoteWidgetPlacement] {
+        guard let regex else { return [] }
+        let ns = content as NSString
+
+        return regex
+            .matches(in: content, range: NSRange(location: 0, length: ns.length))
+            .compactMap { match in
+                guard let range = Range(match.range, in: content) else { return nil }
+
+                let keyword = ns.substring(with: match.range(at: 1))
+                guard let type = StickyNoteWidgetPlacementType.allCases
+                    .first(where: { $0.tokenKeyword == keyword })
+                else { return nil }
+
+                var group = 1
+                if match.range(at: 2).location != NSNotFound,
+                   let parsed = Int(ns.substring(with: match.range(at: 2))) {
+                    group = max(1, parsed)
+                }
+
+                return StickyNoteWidgetPlacement(type: type, group: group, range: range)
+            }
+    }
+
+    static func stripping(_ content: String) -> String {
+        guard let regex else { return content }
+        let ns = content as NSString
+        return regex
+            .stringByReplacingMatches(
+                in: content,
+                range: NSRange(location: 0, length: ns.length),
+                withTemplate: ""
+            )
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+private enum StickyNoteWidgetRenderedKind: Equatable {
+    case text(String)
+    case bullets(Int)
+    case checklist(Int)
+    case numbers(Int)
+}
+
+private struct StickyNoteWidgetRenderedElement: Identifiable, Equatable {
+    let id: String
+    let kind: StickyNoteWidgetRenderedKind
+}
+
+/// Hard-bounds content to the space the widget actually has and cuts the overflow.
+/// `.frame(maxHeight: .infinity)` only expands to fill — a child that insists on being
+/// taller still spills past it, which is why over-long notes were overflowing the widget.
+/// GeometryReader gives a concrete height to clamp to.
+private struct StickyNoteWidgetOverflowClip: ViewModifier {
+    func body(content: Content) -> some View {
+        GeometryReader { geo in
+            content
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
+                .clipped()
+        }
+    }
+}
+
+private extension View {
+    func stickyNoteOverflowClip() -> some View {
+        modifier(StickyNoteWidgetOverflowClip())
+    }
 }
 
 struct LunixiaStickyNoteWidgetNote: Codable, Identifiable, Equatable {
     var id: UUID
     var content: String
     var colorHex: String
+    var secondaryColorHex: String
+    var usesGradient: Bool
     var checklistItems: [LunixiaStickyNoteWidgetChecklistItem]
+    var listItems: [LunixiaStickyNoteWidgetListItem]
     var fontID: String
     var tabName: String
     var label: String
@@ -32,7 +192,10 @@ struct LunixiaStickyNoteWidgetNote: Codable, Identifiable, Equatable {
         case id
         case content
         case colorHex
+        case secondaryColorHex
+        case usesGradient
         case checklistItems
+        case listItems
         case fontID
         case tabName
         case label
@@ -45,7 +208,10 @@ struct LunixiaStickyNoteWidgetNote: Codable, Identifiable, Equatable {
         id: UUID,
         content: String,
         colorHex: String,
+        secondaryColorHex: String,
+        usesGradient: Bool,
         checklistItems: [LunixiaStickyNoteWidgetChecklistItem],
+        listItems: [LunixiaStickyNoteWidgetListItem],
         fontID: String,
         tabName: String,
         label: String,
@@ -56,7 +222,10 @@ struct LunixiaStickyNoteWidgetNote: Codable, Identifiable, Equatable {
         self.id = id
         self.content = content
         self.colorHex = colorHex
+        self.secondaryColorHex = secondaryColorHex
+        self.usesGradient = usesGradient
         self.checklistItems = checklistItems
+        self.listItems = listItems
         self.fontID = fontID
         self.tabName = tabName
         self.label = label
@@ -70,7 +239,10 @@ struct LunixiaStickyNoteWidgetNote: Codable, Identifiable, Equatable {
         id = try container.decode(UUID.self, forKey: .id)
         content = try container.decode(String.self, forKey: .content)
         colorHex = try container.decode(String.self, forKey: .colorHex)
+        secondaryColorHex = try container.decodeIfPresent(String.self, forKey: .secondaryColorHex) ?? "#22D3EE"
+        usesGradient = try container.decodeIfPresent(Bool.self, forKey: .usesGradient) ?? false
         checklistItems = try container.decodeIfPresent([LunixiaStickyNoteWidgetChecklistItem].self, forKey: .checklistItems) ?? []
+        listItems = try container.decodeIfPresent([LunixiaStickyNoteWidgetListItem].self, forKey: .listItems) ?? []
         fontID = try container.decodeIfPresent(String.self, forKey: .fontID) ?? "system"
         tabName = try container.decodeIfPresent(String.self, forKey: .tabName) ?? "All Notes"
         label = try container.decodeIfPresent(String.self, forKey: .label) ?? ""
@@ -137,18 +309,21 @@ enum LunixiaStickyNoteWidgetStore {
         LunixiaStickyNoteWidgetSnapshot(
             tabs: ["All Notes"],
             notes: [
-                LunixiaStickyNoteWidgetNote(
-                    id: UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID(),
-                    content: "Choose a sticky note to keep nearby.",
-                    colorHex: "#6B4CDE",
-                    checklistItems: [
-                        LunixiaStickyNoteWidgetChecklistItem(
-                            id: UUID(uuidString: "00000000-0000-0000-0000-000000000002") ?? UUID(),
-                            title: "Tap and hold to edit widget",
-                            isCompleted: false
-                        )
-                    ],
-                    fontID: "rounded",
+	                LunixiaStickyNoteWidgetNote(
+	                    id: UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID(),
+	                    content: "Choose a sticky note to keep nearby.",
+	                    colorHex: "#6B4CDE",
+	                    secondaryColorHex: "#22D3EE",
+	                    usesGradient: false,
+	                    checklistItems: [
+	                        LunixiaStickyNoteWidgetChecklistItem(
+	                            id: UUID(uuidString: "00000000-0000-0000-0000-000000000002") ?? UUID(),
+	                            title: "Tap and hold to edit widget",
+	                            isCompleted: false
+	                        )
+	                    ],
+	                    listItems: [],
+	                    fontID: "rounded",
                     tabName: "All Notes",
                     label: "",
                     label2: "",
@@ -331,15 +506,18 @@ struct StickyNoteOptionsProvider: DynamicOptionsProvider {
 }
 
 extension StickyNoteEntity {
-    init(note: LunixiaStickyNoteWidgetNote) {
-        let trimmed = note.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        let checklistTitle = note.checklistItems
-            .map { $0.title.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first { !$0.isEmpty }
-        self.id = note.id
-        self.title = trimmed.isEmpty ? (checklistTitle ?? "Empty Note") : trimmed
-        self.tabName = note.tabName
-    }
+	init(note: LunixiaStickyNoteWidgetNote) {
+	    let trimmed = StickyNoteWidgetTokenParser.stripping(note.content)
+	    let listTitle = note.listItems
+	        .map { $0.title.trimmingCharacters(in: .whitespacesAndNewlines) }
+	        .first { !$0.isEmpty }
+	    let checklistTitle = note.checklistItems
+	        .map { $0.title.trimmingCharacters(in: .whitespacesAndNewlines) }
+	        .first { !$0.isEmpty }
+	    self.id = note.id
+	    self.title = trimmed.isEmpty ? (listTitle ?? checklistTitle ?? "Empty Note") : trimmed
+	    self.tabName = note.tabName
+	}
 }
 
 struct StickyNoteConfigurationIntent: WidgetConfigurationIntent {
@@ -415,6 +593,8 @@ private enum StickyNoteWidgetFontOption: String {
     case beautifulRainbow
     case balistia
     case cenila
+    case cheekySmileAlt
+    case chibiDinosaur
     case childowEveryday
     case chunkyBear
     case chubbyLines
@@ -424,7 +604,10 @@ private enum StickyNoteWidgetFontOption: String {
     case inLove
     case liveOnTheMoon
     case loveMonday
+    case lumilkys
     case mightyFineDemibold
+    case rainbowClub
+    case santaJolly
     case soulDreams
     case sugarDonutHeart
 
@@ -438,6 +621,10 @@ private enum StickyNoteWidgetFontOption: String {
             return "Balistia-Regular"
         case .cenila:
             return "Cenila"
+        case .cheekySmileAlt:
+            return "CheekySmileAltRegular"
+        case .chibiDinosaur:
+            return "ChibiDinosaurRegular"
         case .childowEveryday:
             return "ChildowEveryday"
         case .chunkyBear:
@@ -456,8 +643,14 @@ private enum StickyNoteWidgetFontOption: String {
             return "LiveonTheMoon"
         case .loveMonday:
             return "LoveMonday"
+        case .lumilkys:
+            return "Lumilkys"
         case .mightyFineDemibold:
             return "ZPMightyFineDemibold"
+        case .rainbowClub:
+            return "RainbowClubRegular"
+        case .santaJolly:
+            return "SantaJollyRegular"
         case .soulDreams:
             return "SoulDreams"
         case .sugarDonutHeart:
@@ -475,6 +668,10 @@ private enum StickyNoteWidgetFontOption: String {
             return "Balistia.otf"
         case .cenila:
             return "Cenila.otf"
+        case .cheekySmileAlt:
+            return "Cheeky Smilealt.otf"
+        case .chibiDinosaur:
+            return "Chibi Dinosaur.otf"
         case .childowEveryday:
             return "Childow Everyday.otf"
         case .chunkyBear:
@@ -493,8 +690,14 @@ private enum StickyNoteWidgetFontOption: String {
             return "Live On The Moon.otf"
         case .loveMonday:
             return "Love Monday.otf"
+        case .lumilkys:
+            return "Lumilkys Regular.ttf"
         case .mightyFineDemibold:
             return "Mighty Fine Demibold.otf"
+        case .rainbowClub:
+            return "RainbowClub.otf"
+        case .santaJolly:
+            return "Santa Jolly.otf"
         case .soulDreams:
             return "Soul Dreams.otf"
         case .sugarDonutHeart:
@@ -562,6 +765,8 @@ private enum StickyNoteWidgetFontRegistrar {
             StickyNoteWidgetFontOption.beautifulRainbow,
             .balistia,
             .cenila,
+            .cheekySmileAlt,
+            .chibiDinosaur,
             StickyNoteWidgetFontOption.childowEveryday,
             .chunkyBear,
             .chubbyLines,
@@ -571,7 +776,10 @@ private enum StickyNoteWidgetFontRegistrar {
             .inLove,
             .liveOnTheMoon,
             .loveMonday,
+            .lumilkys,
             .mightyFineDemibold,
+            .rainbowClub,
+            .santaJolly,
             .soulDreams,
             .sugarDonutHeart
         ] {
@@ -592,13 +800,14 @@ struct LunixiaStickyNoteWidgetView: View {
 
     private var note: LunixiaStickyNoteWidgetNote? { entry.note }
     private var noteColor: Color { Color(lunixiaHex: note?.colorHex ?? "#6B4CDE") }
+    private var noteSecondaryColor: Color { Color(lunixiaHex: note?.secondaryColorHex ?? "#22D3EE") }
     private var fontOption: StickyNoteWidgetFontOption {
         StickyNoteWidgetFontOption.option(for: note?.fontID ?? "system")
     }
 
     var body: some View {
         ZStack {
-            noteColor
+            noteBackground
 
             LinearGradient(
                 colors: [
@@ -630,90 +839,254 @@ struct LunixiaStickyNoteWidgetView: View {
             }
         }
         .containerBackground(for: .widget) {
+            noteBackground
+        }
+    }
+
+    @ViewBuilder
+    private var noteBackground: some View {
+        if note?.usesGradient == true {
+            LinearGradient(
+                colors: [noteColor, noteSecondaryColor],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else {
             noteColor
         }
     }
 
+    private func contentWithoutPlacementTokens(_ content: String) -> String {
+        StickyNoteWidgetTokenParser.stripping(content)
+    }
+
+    private func renderedContentElements(for note: LunixiaStickyNoteWidgetNote) -> [StickyNoteWidgetRenderedElement] {
+        let content = note.content
+        var elements: [StickyNoteWidgetRenderedElement] = []
+        var placedKeys = Set<String>()
+        var cursor = content.startIndex
+        var counter = 0
+
+        func appendText(_ text: String) {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            counter += 1
+            elements.append(StickyNoteWidgetRenderedElement(id: "text-\(counter)", kind: .text(trimmed)))
+        }
+
+        func appendList(_ type: StickyNoteWidgetPlacementType, group: Int, suffix: String = "") {
+            counter += 1
+            elements.append(
+                StickyNoteWidgetRenderedElement(
+                    id: "\(type.rawValue)-\(group)\(suffix)-\(counter)",
+                    kind: renderedKind(for: type, group: group)
+                )
+            )
+        }
+
+        for placement in StickyNoteWidgetTokenParser.placements(in: content) {
+            appendText(String(content[cursor..<placement.range.lowerBound]))
+
+            let key = "\(placement.type.rawValue)-\(placement.group)"
+            if hasItems(note, type: placement.type, group: placement.group), !placedKeys.contains(key) {
+                placedKeys.insert(key)
+                appendList(placement.type, group: placement.group)
+            }
+
+            cursor = placement.range.upperBound
+        }
+
+        appendText(String(content[cursor..<content.endIndex]))
+
+        for (type, group) in populatedGroups(in: note)
+        where !placedKeys.contains("\(type.rawValue)-\(group)") {
+            appendList(type, group: group, suffix: "-fallback")
+        }
+
+        return elements
+    }
+
+    private func hasItems(
+        _ note: LunixiaStickyNoteWidgetNote,
+        type: StickyNoteWidgetPlacementType,
+        group: Int
+    ) -> Bool {
+        switch type {
+        case .bullets:
+            return note.listItems.contains { $0.kind == .bullet && $0.group == group }
+        case .numbers:
+            return note.listItems.contains { $0.kind == .numbered && $0.group == group }
+        case .checklist:
+            return note.checklistItems.contains { $0.group == group }
+        }
+    }
+
+    private func populatedGroups(
+        in note: LunixiaStickyNoteWidgetNote
+    ) -> [(StickyNoteWidgetPlacementType, Int)] {
+        var pairs: [(StickyNoteWidgetPlacementType, Int)] = []
+
+        for type in StickyNoteWidgetPlacementType.allCases {
+            let groups: Set<Int>
+            switch type {
+            case .bullets:
+                groups = Set(note.listItems.filter { $0.kind == .bullet }.map(\.group))
+            case .numbers:
+                groups = Set(note.listItems.filter { $0.kind == .numbered }.map(\.group))
+            case .checklist:
+                groups = Set(note.checklistItems.map(\.group))
+            }
+            pairs.append(contentsOf: groups.sorted().map { (type, $0) })
+        }
+
+        return pairs
+    }
+
+    private func renderedKind(for type: StickyNoteWidgetPlacementType, group: Int) -> StickyNoteWidgetRenderedKind {
+        switch type {
+        case .bullets: return .bullets(group)
+        case .checklist: return .checklist(group)
+        case .numbers: return .numbers(group)
+        }
+    }
+
+    private func placedContent(
+        _ note: LunixiaStickyNoteWidgetNote,
+        textFontSize: CGFloat,
+        textLineLimit: Int?,
+        listLimit: Int?,
+        checklistLimit: Int?,
+        markerSize: CGFloat,
+        circleSize: CGFloat,
+        listFontSize: CGFloat,
+        checklistFontSize: CGFloat,
+        itemLineLimit: Int?,
+        rowSpacing: CGFloat,
+        itemSpacing: CGFloat
+    ) -> some View {
+        let elements = renderedContentElements(for: note)
+
+        return VStack(alignment: .leading, spacing: rowSpacing) {
+            ForEach(elements) { element in
+                switch element.kind {
+                case .text(let text):
+                    Text(text)
+                        .font(fontOption.font(size: textFontSize))
+                        .foregroundStyle(.white)
+                        .lineSpacing(2)
+                        .lineLimit(textLineLimit)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .layoutPriority(2)
+                case .bullets(let group):
+                    list(
+                        note.listItems.filter { $0.kind == .bullet && $0.group == group },
+                        limit: listLimit,
+                        markerSize: markerSize,
+                        fontSize: listFontSize,
+                        itemLineLimit: itemLineLimit,
+                        rowSpacing: rowSpacing,
+                        itemSpacing: itemSpacing
+                    )
+                case .checklist(let group):
+                    checklist(
+                        note.checklistItems.filter { $0.group == group },
+                        noteID: note.id,
+                        limit: checklistLimit,
+                        circleSize: circleSize,
+                        fontSize: checklistFontSize,
+                        itemLineLimit: itemLineLimit,
+                        rowSpacing: rowSpacing,
+                        itemSpacing: itemSpacing
+                    )
+                case .numbers(let group):
+                    list(
+                        note.listItems.filter { $0.kind == .numbered && $0.group == group },
+                        limit: listLimit,
+                        markerSize: markerSize,
+                        fontSize: listFontSize,
+                        itemLineLimit: itemLineLimit,
+                        rowSpacing: rowSpacing,
+                        itemSpacing: itemSpacing
+                    )
+                }
+            }
+        }
+        // Lay the whole stack out at its natural height. The caller then re-bounds it to
+        // the space the widget actually has and clips, so earlier content renders in full
+        // and whatever runs past the bottom edge is simply cut. Without this the stack
+        // joins the normal height distribution and every block gets squeezed instead.
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
     private func smallNoteContent(_ note: LunixiaStickyNoteWidgetNote) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
+        let trimmedContent = contentWithoutPlacementTokens(note.content)
+
+        return VStack(alignment: .leading, spacing: 7) {
             header(note)
 
             VStack(alignment: .leading, spacing: 6) {
-                if note.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && note.checklistItems.isEmpty {
+                if trimmedContent.isEmpty && note.listItems.isEmpty && note.checklistItems.isEmpty {
                     Text("Empty note")
                         .font(fontOption.font(size: 13))
                         .foregroundStyle(.white.opacity(0.74))
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                 } else {
-                    if !note.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text(note.content)
-                            .font(fontOption.font(size: 13))
-                            .foregroundStyle(.white)
-                            .lineSpacing(2)
-                            .lineLimit(note.checklistItems.isEmpty ? 5 : 3)
-                            .multilineTextAlignment(.leading)
-                            .minimumScaleFactor(0.78)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    checklist(
-                        note.checklistItems,
-                        noteID: note.id,
-                        limit: note.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 3 : 1,
+                    placedContent(
+                        note,
+                        textFontSize: 13,
+                        textLineLimit: nil,
+                        listLimit: nil,
+                        checklistLimit: nil,
+                        markerSize: 14,
                         circleSize: 14,
-                        fontSize: 11,
-                        itemLineLimit: 2,
+                        listFontSize: 11,
+                        checklistFontSize: 11,
+                        itemLineLimit: nil,
                         rowSpacing: 4,
                         itemSpacing: 6
                     )
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .stickyNoteOverflowClip()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private func mediumNoteContent(_ note: LunixiaStickyNoteWidgetNote) -> some View {
-        let trimmedContent = note.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedContent = contentWithoutPlacementTokens(note.content)
 
         return VStack(alignment: .leading, spacing: 9) {
             header(note)
 
             VStack(alignment: .leading, spacing: 8) {
-                if trimmedContent.isEmpty && note.checklistItems.isEmpty {
+                if trimmedContent.isEmpty && note.listItems.isEmpty && note.checklistItems.isEmpty {
                     Text("Empty note")
                         .font(fontOption.font(size: 14))
                         .foregroundStyle(.white.opacity(0.74))
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                 } else {
-                    if !trimmedContent.isEmpty {
-                        Text(note.content)
-                            .font(fontOption.font(size: 14))
-                            .foregroundStyle(.white)
-                            .lineSpacing(2)
-                            .lineLimit(5)
-                            .multilineTextAlignment(.leading)
-                            .minimumScaleFactor(0.80)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .layoutPriority(2)
-                    }
-
-                    checklist(
-                        note.checklistItems,
-                        noteID: note.id,
-                        limit: trimmedContent.isEmpty ? 4 : 1,
+                    placedContent(
+                        note,
+                        textFontSize: 14,
+                        textLineLimit: nil,
+                        listLimit: nil,
+                        checklistLimit: nil,
+                        markerSize: 17,
                         circleSize: 17,
-                        fontSize: 12,
-                        itemLineLimit: 2,
+                        listFontSize: 12,
+                        checklistFontSize: 12,
+                        itemLineLimit: nil,
                         rowSpacing: 7,
                         itemSpacing: 8
                     )
-                    .layoutPriority(trimmedContent.isEmpty ? 1 : 0)
+                    .layoutPriority(2)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .stickyNoteOverflowClip()
 
             footer(note)
                 .layoutPriority(-1)
@@ -722,30 +1095,35 @@ struct LunixiaStickyNoteWidgetView: View {
     }
 
     private func noteContent(_ note: LunixiaStickyNoteWidgetNote) -> some View {
-        VStack(alignment: .leading, spacing: family == .systemSmall ? 7 : 10) {
+        let trimmedContent = contentWithoutPlacementTokens(note.content)
+
+        return VStack(alignment: .leading, spacing: family == .systemSmall ? 7 : 10) {
             header(note)
 
             VStack(alignment: .leading, spacing: family == .systemSmall ? 6 : 9) {
-                if note.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && note.checklistItems.isEmpty {
+                if trimmedContent.isEmpty && note.listItems.isEmpty && note.checklistItems.isEmpty {
                     Text("Empty note")
                         .font(fontOption.font(size: contentFontSize))
                         .foregroundStyle(.white.opacity(0.72))
                         .lineLimit(2)
                 } else {
-                    if !note.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text(note.content)
-                            .font(fontOption.font(size: contentFontSize))
-                            .foregroundStyle(.white)
-                            .lineSpacing(2)
-                            .lineLimit(contentLineLimit)
-                            .multilineTextAlignment(.leading)
-                            .minimumScaleFactor(0.80)
-                    }
-
-                    checklist(note.checklistItems, noteID: note.id)
+                    placedContent(
+                        note,
+                        textFontSize: contentFontSize,
+                        textLineLimit: nil,
+                        listLimit: nil,
+                        checklistLimit: nil,
+                        markerSize: markerSize,
+                        circleSize: markerSize,
+                        listFontSize: checklistFontSize,
+                        checklistFontSize: checklistFontSize,
+                        itemLineLimit: nil,
+                        rowSpacing: contentRowSpacing,
+                        itemSpacing: contentItemSpacing
+                    )
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .stickyNoteOverflowClip()
 
             if family != .systemSmall {
                 footer(note)
@@ -760,17 +1138,66 @@ struct LunixiaStickyNoteWidgetView: View {
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
-                .frame(width: family == .systemSmall ? 15 : 18, height: family == .systemSmall ? 15 : 18)
+                .frame(width: headerIconSize, height: headerIconSize)
                 .foregroundStyle(LGradients.header)
 
             Text(headerTitle(note))
-                .font(.system(size: family == .systemSmall ? 11 : 13, weight: .black, design: .rounded))
+                .font(.system(size: headerTitleSize, weight: .black, design: .rounded))
                 .foregroundStyle(.white.opacity(0.92))
                 .lineLimit(1)
                 .minimumScaleFactor(0.70)
 
             Spacer(minLength: 0)
         }
+    }
+
+    private func list(_ items: [LunixiaStickyNoteWidgetListItem]) -> some View {
+        list(
+            items,
+            limit: listLimit,
+            markerSize: family == .systemSmall ? 14 : 17,
+            fontSize: checklistFontSize,
+            itemLineLimit: checklistItemLineLimit,
+            rowSpacing: family == .systemSmall ? 4 : 7,
+            itemSpacing: family == .systemSmall ? 6 : 8
+        )
+    }
+
+    private func list(
+        _ items: [LunixiaStickyNoteWidgetListItem],
+        limit: Int?,
+        markerSize: CGFloat,
+        fontSize: CGFloat,
+        itemLineLimit: Int?,
+        rowSpacing: CGFloat,
+        itemSpacing: CGFloat
+    ) -> some View {
+        VStack(alignment: .leading, spacing: rowSpacing) {
+            ForEach(Array(items.prefix(limit ?? items.count).enumerated()), id: \.element.id) { _, item in
+                HStack(alignment: .top, spacing: itemSpacing) {
+                    StickyNoteWidgetListMarker(
+                        kind: item.kind,
+                        number: number(for: item, in: items),
+                        size: markerSize
+                    )
+                    .padding(.top, 1)
+
+                    Text(item.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "List item" : item.title)
+                        .font(fontOption.font(size: fontSize))
+                        .foregroundStyle(.white)
+                        .lineLimit(itemLineLimit)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    private func number(for item: LunixiaStickyNoteWidgetListItem, in items: [LunixiaStickyNoteWidgetListItem]) -> Int {
+        let numberedItems = items.filter { $0.kind == .numbered }
+        guard let index = numberedItems.firstIndex(where: { $0.id == item.id }) else { return 1 }
+        return index + 1
     }
 
     private func checklist(_ items: [LunixiaStickyNoteWidgetChecklistItem], noteID: UUID) -> some View {
@@ -789,15 +1216,15 @@ struct LunixiaStickyNoteWidgetView: View {
     private func checklist(
         _ items: [LunixiaStickyNoteWidgetChecklistItem],
         noteID: UUID,
-        limit: Int,
+        limit: Int?,
         circleSize: CGFloat,
         fontSize: CGFloat,
-        itemLineLimit: Int,
+        itemLineLimit: Int?,
         rowSpacing: CGFloat,
         itemSpacing: CGFloat
     ) -> some View {
         VStack(alignment: .leading, spacing: rowSpacing) {
-            ForEach(Array(items.prefix(limit))) { item in
+            ForEach(Array(items.prefix(limit ?? items.count))) { item in
                 HStack(alignment: .top, spacing: itemSpacing) {
                     Button(intent: ToggleStickyNoteChecklistItemIntent(noteID: noteID, itemID: item.id)) {
                         StickyNoteWidgetChecklistCircle(
@@ -873,10 +1300,52 @@ struct LunixiaStickyNoteWidgetView: View {
             .filter { !$0.isEmpty }
     }
 
+    /// Bullet dots, number markers and checklist circles.
+    private var markerSize: CGFloat {
+        switch family {
+        case .systemSmall: return 14
+        case .systemExtraLarge: return 21
+        default: return 17
+        }
+    }
+
+    private var contentRowSpacing: CGFloat {
+        switch family {
+        case .systemSmall: return 4
+        case .systemExtraLarge: return 11
+        default: return 7
+        }
+    }
+
+    private var contentItemSpacing: CGFloat {
+        switch family {
+        case .systemSmall: return 6
+        case .systemExtraLarge: return 11
+        default: return 8
+        }
+    }
+
+    private var headerIconSize: CGFloat {
+        switch family {
+        case .systemSmall: return 15
+        case .systemExtraLarge: return 24
+        default: return 18
+        }
+    }
+
+    private var headerTitleSize: CGFloat {
+        switch family {
+        case .systemSmall: return 11
+        case .systemExtraLarge: return 17
+        default: return 13
+        }
+    }
+
     private var widgetPadding: CGFloat {
         switch family {
         case .systemSmall: return 16
         case .systemMedium: return 18
+        case .systemExtraLarge: return 26
         default: return 20
         }
     }
@@ -885,6 +1354,7 @@ struct LunixiaStickyNoteWidgetView: View {
         switch family {
         case .systemSmall: return 13
         case .systemMedium: return 14
+        case .systemExtraLarge: return 19
         default: return 16
         }
     }
@@ -893,6 +1363,7 @@ struct LunixiaStickyNoteWidgetView: View {
         switch family {
         case .systemSmall: return 11
         case .systemMedium: return 12
+        case .systemExtraLarge: return 17
         default: return 14
         }
     }
@@ -901,6 +1372,7 @@ struct LunixiaStickyNoteWidgetView: View {
         switch family {
         case .systemSmall: return 4
         case .systemMedium: return 4
+        case .systemExtraLarge: return 16
         default: return 8
         }
     }
@@ -909,6 +1381,16 @@ struct LunixiaStickyNoteWidgetView: View {
         switch family {
         case .systemSmall: return 3
         case .systemMedium: return 4
+        case .systemExtraLarge: return 16
+        default: return 8
+        }
+    }
+
+    private var listLimit: Int {
+        switch family {
+        case .systemSmall: return 3
+        case .systemMedium: return 4
+        case .systemExtraLarge: return 16
         default: return 8
         }
     }
@@ -917,6 +1399,7 @@ struct LunixiaStickyNoteWidgetView: View {
         switch family {
         case .systemSmall: return 2
         case .systemMedium: return 2
+        case .systemExtraLarge: return 4
         default: return 3
         }
     }
@@ -927,7 +1410,8 @@ private struct StickyNoteWidgetChecklistText: View {
     let isCompleted: Bool
     let fontOption: StickyNoteWidgetFontOption
     let fontSize: CGFloat
-    let lineLimit: Int
+    /// nil means "wrap freely and let the widget clip", rather than squeezing to fit.
+    let lineLimit: Int?
 
     private var displayTitle: String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -940,13 +1424,13 @@ private struct StickyNoteWidgetChecklistText: View {
             .foregroundStyle(.white.opacity(isCompleted ? 0.5 : 1.0))
             .lineLimit(lineLimit)
             .multilineTextAlignment(.leading)
-            .minimumScaleFactor(0.78)
+            .fixedSize(horizontal: false, vertical: true)
             .overlay {
                 if isCompleted {
                     GeometryReader { geo in
                         let lineCount = geo.size.height < fontSize * 2.0
                             ? 1
-                            : max(1, min(lineLimit, Int(round(geo.size.height / (fontSize * 1.4)))))
+                            : max(1, min(lineLimit ?? Int.max, Int(round(geo.size.height / (fontSize * 1.4)))))
                         let lineSpacing = geo.size.height / CGFloat(lineCount)
 
                         ForEach(0..<lineCount, id: \.self) { i in
@@ -959,6 +1443,28 @@ private struct StickyNoteWidgetChecklistText: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct StickyNoteWidgetListMarker: View {
+    let kind: LunixiaStickyNoteWidgetListItemKind
+    let number: Int
+    let size: CGFloat
+
+    var body: some View {
+        switch kind {
+        case .bullet:
+            Circle()
+                .fill(LGradients.header)
+                .frame(width: max(5, size * 0.38), height: max(5, size * 0.38))
+                .frame(width: size, height: size)
+        case .numbered:
+            Text("\(number).")
+                .font(.system(size: max(8, size * 0.58), weight: .black, design: .rounded))
+                .foregroundStyle(.white.opacity(0.92))
+                .monospacedDigit()
+                .frame(width: max(size + 8, 24), height: size, alignment: .trailing)
+        }
     }
 }
 
@@ -1004,7 +1510,7 @@ struct LunixiaStickyNoteWidget: Widget {
         }
         .configurationDisplayName("Sticky Note")
         .description("Keep a selected Lunixia note on your Home Screen.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
         .contentMarginsDisabled()
     }
 }

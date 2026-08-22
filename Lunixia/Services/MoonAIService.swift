@@ -56,7 +56,7 @@ final class MoonAIService {
         }
 
         guard let url = URL(
-            string: "https://appapi.vox.com.im/api/moon"
+            string: "https://appapi.voxiverse.ink/api/moon"
         ) else {
             throw MoonAIServiceError.invalidURL
         }

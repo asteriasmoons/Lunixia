@@ -8,27 +8,55 @@ import SwiftData
 import Foundation
 import UIKit
 
+private enum NoteRenderedContentKind: Equatable {
+    case text(String)
+    case bullets(Int)
+    case checklist(Int)
+    case numbers(Int)
+}
+
+private struct NoteRenderedContentElement: Identifiable, Equatable {
+    let id: String
+    let kind: NoteRenderedContentKind
+}
+
 struct NotesView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var storeManager: LunixiaStoreManager
-    
+
     @Query(sort: \Note.updatedAt, order: .reverse)
     private var notes: [Note]
-    
+
     @Query(sort: \NotesTab.createdAt, order: .forward)
     private var tabs: [NotesTab]
-    
+
     @State private var selectedFilter: NotesFilter = .all
     @State private var selectedNote: Note?
     @State private var viewingNote: Note?
     @State private var draftContent: String = ""
     @State private var draftChecklistItems: [NoteChecklistItem] = []
+    @State private var draftListItems: [NoteListItem] = []
+    @State private var draftSelectedListType: NoteListPlacementType = .bullets
+    @State private var draftSlashCommandOffset: Int?
+    @State private var showListCommandMenu: Bool = false
+    @State private var showListTypeHelpSheet: Bool = false
+#if canImport(UIKit)
+    private var isIPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+#else
+    private var isIPad: Bool { false }
+#endif
+
+    @State private var editingListType: NoteListPlacementType?
+    @State private var draftRichContent: AttributedString = AttributedString()
     @State private var draftFontID: String = NoteFontOption.system.rawValue
     @State private var draftFontSize: Double = 15
     @State private var draftLabel1: String = ""
     @State private var draftLabel2: String = ""
     @State private var draftColorHex: String = "#6B4CDE"
+    @State private var draftSecondaryColorHex: String = "#22D3EE"
     @State private var draftColor: Color = Color(red: 107 / 255, green: 76 / 255, blue: 222 / 255)
+    @State private var draftSecondaryColor: Color = Color(red: 34 / 255, green: 211 / 255, blue: 238 / 255)
+    @State private var draftUsesGradient: Bool = false
     @State private var draftDate: Date = Date()
     @State private var isCreatingNote: Bool = false
     @State private var showDeleteConfirmation = false
@@ -36,7 +64,7 @@ struct NotesView: View {
     @AppStorage("notes.collapsedPinnedIDs") private var collapsedPinnedIDsStorage: String = ""
     @Query private var userSettings: [UserSettings]
     @State private var collapsedPinnedIDs: Set<String> = []
-    
+
     @State private var selectedTab: String = ""
     @State private var newTabName: String = ""
     @State private var renamingTabName: String = ""
@@ -47,10 +75,10 @@ struct NotesView: View {
     @State private var tabPopupMode: TabPopupMode = .create
     @FocusState private var isEditorFocused: Bool
     @FocusState private var isTabFieldFocused: Bool
-    
+
     @StateObject private var voiceManager = VoiceTranscriptionManager()
     @State private var didInsertTranscript: Bool = false
-    
+
     @State private var showPremiumBanner = false
     @State private var premiumBannerMessage = ""
     @State private var showCopiedBanner = false
@@ -59,12 +87,12 @@ struct NotesView: View {
     private var isPremium: Bool {
         storeManager.isPremium
     }
-    
+
     private let columns = [
         GridItem(.flexible(), spacing: 14),
         GridItem(.flexible(), spacing: 14)
     ]
-    
+
     private var settings: UserSettings? { userSettings.first }
     private var notesDefaultTab: String { settings?.notesDefaultTab ?? "" }
     private var draftFontOption: NoteFontOption {
@@ -73,7 +101,7 @@ struct NotesView: View {
     private var draftFontSizeValue: CGFloat {
         CGFloat(draftFontSize)
     }
-    
+
     private var nonRootTabs: [String] {
         notesTabs.filter { $0 != rootTabName }
     }
@@ -109,7 +137,7 @@ struct NotesView: View {
             ZStack(alignment: .bottomTrailing) {
                 LunixiaBackground()
                     .ignoresSafeArea()
-                
+
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 18) {
                         topPageBar
@@ -143,18 +171,61 @@ struct NotesView: View {
             .overlay {
                 overlayContent
             }
-            .sheet(isPresented: $showingTabPopup) {
+            // Tab popup — sheet on iPhone, fullScreenCover on iPad
+            .sheet(isPresented: Binding(
+                get: { !isIPad && showingTabPopup },
+                set: { if !$0 { showingTabPopup = false } }
+            )) {
                 tabNameSheet
             }
-            .sheet(item: $selectedNote) { note in
+            .fullScreenCover(isPresented: Binding(
+                get: { isIPad && showingTabPopup },
+                set: { if !$0 { showingTabPopup = false } }
+            )) {
+                tabNameSheet
+            }
+            // List types help — sheet on iPhone, fullScreenCover on iPad
+            .sheet(isPresented: Binding(
+                get: { !isIPad && showListTypeHelpSheet },
+                set: { if !$0 { showListTypeHelpSheet = false } }
+            )) {
+                listTypesHelpSheet
+            }
+            .fullScreenCover(isPresented: Binding(
+                get: { isIPad && showListTypeHelpSheet },
+                set: { if !$0 { showListTypeHelpSheet = false } }
+            )) {
+                listTypesHelpSheet
+            }
+            // Editor — sheet on iPhone, fullScreenCover on iPad
+            .sheet(item: Binding<Note?>(
+                get: { isIPad ? nil : selectedNote },
+                set: { selectedNote = $0 }
+            )) { note in
                 editorOverlay(for: note)
                     .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
             }
-            .sheet(item: $viewingNote) { note in
+            .fullScreenCover(item: Binding<Note?>(
+                get: { isIPad ? selectedNote : nil },
+                set: { selectedNote = $0 }
+            )) { note in
+                editorOverlay(for: note)
+            }
+            // Viewer — sheet on iPhone, fullScreenCover on iPad
+            .sheet(item: Binding<Note?>(
+                get: { isIPad ? nil : viewingNote },
+                set: { viewingNote = $0 }
+            )) { note in
                 viewerOverlay(for: note)
                     .presentationDetents(viewerSheetDetents(for: note))
                     .presentationDragIndicator(.visible)
+            }
+            .fullScreenCover(item: Binding<Note?>(
+                get: { isIPad ? viewingNote : nil },
+                set: { viewingNote = $0 }
+            )) { note in
+                viewerOverlay(for: note)
             }
             .onAppear {
                 ensureRootTabExists()
@@ -180,17 +251,27 @@ struct NotesView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("Done") {
+                    Button {
                         isEditorFocused = false
                         isTabFieldFocused = false
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    } label: {
+                        Text("Done")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .fixedSize()
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(LGradients.header, in: Capsule(style: .continuous))
                     }
-                    .font(.system(size: 16, weight: .semibold))
+                    .buttonStyle(.plain)
                 }
             }
             .toolbarBackground(.hidden, for: .navigationBar)
         }
     }
-    
+
     // MARK: - Overlay Content
 
     @ViewBuilder
@@ -240,9 +321,11 @@ struct NotesView: View {
                                 .font(.system(size: 13, weight: .black, design: .rounded))
                                 .foregroundStyle(LColors.textSecondary)
 
-                            GlassTextField(
+                            NotesGradientDoneTextField(
                                 placeholder: "Enter name",
-                                text: tabPopupMode == .create ? $newTabName : $renamedTabName
+                                text: tabPopupMode == .create ? $newTabName : $renamedTabName,
+                                fontOption: .system,
+                                fontSize: 15
                             )
                             .focused($isTabFieldFocused)
                             .padding(.horizontal, 12)
@@ -288,6 +371,116 @@ struct NotesView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                 isTabFieldFocused = true
             }
+        }
+    }
+
+    private var listTypesHelpSheet: some View {
+        NavigationStack {
+            ZStack {
+                LunixiaBackground()
+                    .ignoresSafeArea()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 10) {
+                            Image("linedpages")
+                                .renderingMode(.template)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 24, height: 24)
+                                .foregroundStyle(LGradients.header)
+
+                            Text("List Types")
+                                .font(.system(size: 28, weight: .black, design: .rounded))
+                                .foregroundStyle(LGradients.header)
+
+                            Spacer()
+
+                            Button {
+                                showListTypeHelpSheet = false
+                            } label: {
+                                Image("xmarkwavy")
+                                    .renderingMode(.template)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 14, height: 14)
+                                    .foregroundStyle(.white)
+                                    .frame(width: 34, height: 34)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.white.opacity(0.10))
+                                            .overlay(Circle().stroke(Color.white.opacity(0.22), lineWidth: 1))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        GlassCardNote {
+                            VStack(alignment: .leading, spacing: 12) {
+                                helpRow(
+                                    title: "Choose first",
+                                    body: "Use the Bullets, Checklist, and Numbers chips to choose what the plus button creates."
+                                )
+
+                                helpRow(
+                                    title: "Place it in text",
+                                    body: "Type / in the note text, then choose the list type. The editor inserts a placement token like \(Note.bulletsPlacementToken)."
+                                )
+
+                                helpRow(
+                                    title: "Render later",
+                                    body: "The editor keeps the token visible. The note view and widget replace the token with the real list from the boxes below."
+                                )
+                            }
+                        }
+
+                        GlassCardNote {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Tokens")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(.white)
+
+                                ForEach(NoteListPlacementType.allCases) { type in
+                                    HStack(spacing: 10) {
+                                        Text(type.title)
+                                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                                            .foregroundStyle(.white.opacity(0.78))
+                                            .frame(width: 74, alignment: .leading)
+
+                                        Text(type.token)
+                                            .font(.system(size: 12, weight: .black, design: .rounded))
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 7)
+                                            .background(
+                                                Capsule(style: .continuous)
+                                                    .fill(Color.white.opacity(0.10))
+                                                    .overlay(Capsule(style: .continuous).stroke(Color.white.opacity(0.20), lineWidth: 1))
+                                            )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(22)
+                }
+            }
+            .toolbar(.hidden, for: .navigationBar)
+        }
+        .presentationDetents([.height(520), .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func helpRow(title: String, body: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title)
+                .font(.system(size: 14, weight: .black, design: .rounded))
+                .foregroundStyle(.white)
+
+            Text(body)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.74))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -378,8 +571,12 @@ struct NotesView: View {
     private func editorOverlay(for note: Note) -> some View {
         NavigationStack {
             ZStack {
-                draftColor
-                    .ignoresSafeArea()
+                noteBackground(
+                    primary: draftColor,
+                    secondary: draftSecondaryColor,
+                    usesGradient: draftUsesGradient
+                )
+                .ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     popupHeader(for: note)
@@ -387,11 +584,11 @@ struct NotesView: View {
                         .padding(.top, 20)
                         .padding(.bottom, 14)
 
-                    ScrollView(showsIndicators: false) {
-                        popupContent
-                            .padding(.horizontal, 22)
-                            .padding(.bottom, 18)
-                    }
+		                    ScrollView(showsIndicators: false) {
+		                        popupContent(for: note)
+		                            .padding(.horizontal, 22)
+		                            .padding(.bottom, 18)
+		                    }
 
                     popupFooter(for: note)
                         .padding(.horizontal, 22)
@@ -400,6 +597,32 @@ struct NotesView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
+        }
+        .onAppear {
+            // The sheet closure captures the NotesView value from before startEditing's
+            // @State writes land, so anything passed by value (font: draftFontOption)
+            // renders with the defaults. Values passed as Bindings read live storage and
+            // were always correct, which is why only these fields were wrong. Re-asserting
+            // here forces one invalidation with the note's real font.
+            if draftFontID != note.fontID {
+                draftFontID = note.fontID
+            }
+            if draftFontSize != note.resolvedFontSize {
+                draftFontSize = note.resolvedFontSize
+            }
+        }
+        // Per-type list editor — sheet on iPhone, fullScreenCover on iPad
+        .sheet(item: Binding<NoteListPlacementType?>(
+            get: { isIPad ? nil : editingListType },
+            set: { editingListType = $0 }
+        )) { type in
+            listTypeEditorSheet(for: type)
+        }
+        .fullScreenCover(item: Binding<NoteListPlacementType?>(
+            get: { isIPad ? editingListType : nil },
+            set: { editingListType = $0 }
+        )) { type in
+            listTypeEditorSheet(for: type)
         }
         .presentationBackground(draftColor)
         .modifier(
@@ -415,13 +638,34 @@ struct NotesView: View {
         )
     }
 
+    private func listTypeEditorSheet(for type: NoteListPlacementType) -> some View {
+        NoteListTypeEditorSheet(
+            type: type,
+            listItems: $draftListItems,
+            checklistItems: $draftChecklistItems,
+            fontID: $draftFontID,
+            fontSize: $draftFontSize,
+            onAddGroup: { addedType, group in
+                appendPlacementToken(addedType, group: group)
+            },
+            onClose: {
+                editingListType = nil
+            }
+        )
+    }
+
     private func viewerOverlay(for note: Note) -> some View {
         let noteColor = color(from: note.colorHex)
+        let noteSecondaryColor = color(from: note.secondaryColorHex)
 
         return NavigationStack {
             ZStack {
-                noteColor
-                    .ignoresSafeArea()
+                noteBackground(
+                    primary: noteColor,
+                    secondary: noteSecondaryColor,
+                    usesGradient: note.usesGradient
+                )
+                .ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     viewerHeader(for: note)
@@ -487,6 +731,322 @@ struct NotesView: View {
         }
     }
 
+    @ViewBuilder
+    private func noteBackground(primary: Color, secondary: Color, usesGradient: Bool) -> some View {
+        if usesGradient {
+            LinearGradient(
+                colors: [
+                    primary,
+                    secondary
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else {
+            primary
+        }
+    }
+
+    private func noteColorPickerRow(title: String, color: Binding<Color>, hex: Binding<String>) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.78))
+                .frame(width: 58, alignment: .leading)
+
+            ColorPicker("", selection: color, supportsOpacity: false)
+                .labelsHidden()
+                .onChange(of: color.wrappedValue) { _, newColor in
+                    hex.wrappedValue = hexString(from: newColor)
+                }
+
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(color.wrappedValue)
+                .frame(width: 44, height: 44)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(LColors.glassBorder, lineWidth: 1)
+                )
+
+            Text(hex.wrappedValue)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(LColors.textSecondary)
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var listCommandMenu: some View {
+        HStack(spacing: 8) {
+            ForEach(NoteListPlacementType.allCases) { type in
+                Button {
+                    insertPlacementToken(type)
+                } label: {
+                    Text(listCommandTitle(for: type))
+                        .font(.system(size: 12, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 9)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(draftSelectedListType == type ? AnyShapeStyle(LGradients.header) : AnyShapeStyle(Color.white.opacity(0.12)))
+                            .overlay(Capsule(style: .continuous).stroke(Color.white.opacity(0.22), lineWidth: 1))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.black.opacity(0.16))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.white.opacity(0.18), lineWidth: 1))
+        )
+    }
+
+    private func listCommandTitle(for type: NoteListPlacementType) -> String {
+        switch type {
+        case .bullets: return "Bullets"
+        case .checklist: return "Checklists"
+        case .numbers: return "Numbers"
+        }
+    }
+
+    /// Builds the styled content for the rich editor: the note's font across the whole
+    /// run, plus a tint behind each list placement token.
+    private func styledDraftContent(_ plain: String) -> AttributedString {
+        styledContent(plain, fontOption: draftFontOption, fontSize: draftFontSizeValue)
+    }
+
+    private func styledContent(
+        _ plain: String,
+        fontOption: NoteFontOption,
+        fontSize: CGFloat
+    ) -> AttributedString {
+        var attributed = AttributedString(plain)
+        attributed.font = fontOption.font(size: fontSize)
+        attributed.foregroundColor = Color.white
+
+        // Token chips. SwiftUI's AttributedString TextEditor supports background and
+        // foreground colour, font and tracking, but not text attachments or a corner
+        // radius — so the chip is a filled rectangle, not a true capsule. The rounded
+        // black weight, purple fill and extra tracking are what sell it as tappable.
+        // Every distinct token in the text, including numbered ones like [[ CHECKLIST 2 ]].
+        let tokens = Set(Note.placements(in: plain).map { $0.type.token(group: $0.group) })
+
+        for token in tokens {
+            var cursor = attributed.startIndex
+            while cursor < attributed.endIndex,
+                  let found = attributed[cursor...].range(of: token) {
+                attributed[found].backgroundColor = LColors.gradientPurple
+                attributed[found].foregroundColor = Color.white
+                attributed[found].font = .system(
+                    size: max(11, fontSize - 2),
+                    weight: .black,
+                    design: .rounded
+                )
+                attributed[found].tracking = 0.6
+                cursor = found.upperBound
+            }
+        }
+
+        return attributed
+    }
+
+    private func handleDraftContentChange(oldValue: String, newValue: String) {
+        guard newValue.count == oldValue.count + 1,
+              let insertedSlashOffset = insertedSlashOffset(from: oldValue, to: newValue)
+        else {
+            if !newValue.contains("/") {
+                showListCommandMenu = false
+                draftSlashCommandOffset = nil
+            }
+            return
+        }
+
+        draftSlashCommandOffset = insertedSlashOffset
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.86)) {
+            showListCommandMenu = true
+        }
+    }
+
+    private func insertedSlashOffset(from oldValue: String, to newValue: String) -> Int? {
+        var oldIndex = oldValue.startIndex
+        var newIndex = newValue.startIndex
+
+        while oldIndex < oldValue.endIndex, newIndex < newValue.endIndex {
+            if oldValue[oldIndex] != newValue[newIndex] {
+                return newValue[newIndex] == "/"
+                    ? newValue.utf16.distance(from: newValue.utf16.startIndex, to: newIndex.samePosition(in: newValue.utf16) ?? newValue.utf16.startIndex)
+                    : nil
+            }
+            oldValue.formIndex(after: &oldIndex)
+            newValue.formIndex(after: &newIndex)
+        }
+
+        guard newIndex < newValue.endIndex, newValue[newIndex] == "/" else { return nil }
+        return newValue.utf16.distance(from: newValue.utf16.startIndex, to: newIndex.samePosition(in: newValue.utf16) ?? newValue.utf16.startIndex)
+    }
+
+    private func insertPlacementToken(_ type: NoteListPlacementType) {
+        draftSelectedListType = type
+        let token = type.token(group: slashInsertGroup(for: type))
+        let replacement = " \(token) "
+        let nsContent = draftContent as NSString
+
+        if let offset = draftSlashCommandOffset,
+           offset >= 0,
+           offset < nsContent.length,
+           nsContent.substring(with: NSRange(location: offset, length: 1)) == "/" {
+            draftContent = nsContent.replacingCharacters(in: NSRange(location: offset, length: 1), with: replacement)
+        } else if let slashRange = draftContent.range(of: "/", options: .backwards) {
+            draftContent.replaceSubrange(slashRange, with: replacement)
+        } else if draftContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            draftContent = token
+        } else {
+            draftContent += "\n\(token)"
+        }
+
+        draftSlashCommandOffset = nil
+        withAnimation(.easeOut(duration: 0.18)) {
+            showListCommandMenu = false
+        }
+    }
+
+    /// Which group the slash menu should place. It prefers a group that already holds
+    /// items but has lost its token, then group 1, so picking a type twice can never
+    /// leave two identical tokens in the text.
+    private func slashInsertGroup(for type: NoteListPlacementType) -> Int {
+        let placed = Set(
+            Note.placements(in: draftContent)
+                .filter { $0.type == type }
+                .map(\.group)
+        )
+
+        let withItems: [Int]
+        switch type {
+        case .bullets:
+            withItems = draftListItems.filter { $0.kind == .bullet }.map(\.group).sorted()
+        case .numbers:
+            withItems = draftListItems.filter { $0.kind == .numbered }.map(\.group).sorted()
+        case .checklist:
+            withItems = draftChecklistItems.map(\.group).sorted()
+        }
+
+        if let orphaned = withItems.first(where: { !placed.contains($0) }) {
+            return orphaned
+        }
+        return placed.contains(1) ? ((placed.max() ?? 1) + 1) : 1
+    }
+
+    /// Appends a new group's token to the end of the note text. The user moves it by
+    /// editing the content, the same as any other token.
+    private func appendPlacementToken(_ type: NoteListPlacementType, group: Int) {
+        let token = type.token(group: group)
+        guard !draftContent.contains(token) else { return }
+
+        if draftContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            draftContent = token
+        } else {
+            draftContent += "\n\n\(token)"
+        }
+    }
+
+    private func renderedContentElements(for note: Note) -> [NoteRenderedContentElement] {
+        let content = note.content
+        var elements: [NoteRenderedContentElement] = []
+        var placedKeys = Set<String>()
+        var cursor = content.startIndex
+        var counter = 0
+
+        func appendText(_ text: String) {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            counter += 1
+            elements.append(NoteRenderedContentElement(id: "text-\(counter)", kind: .text(trimmed)))
+        }
+
+        func appendList(_ type: NoteListPlacementType, group: Int, suffix: String = "") {
+            counter += 1
+            elements.append(
+                NoteRenderedContentElement(
+                    id: "\(type.rawValue)-\(group)\(suffix)-\(counter)",
+                    kind: renderedKind(for: type, group: group)
+                )
+            )
+        }
+
+        for placement in Note.placements(in: content) {
+            appendText(String(content[cursor..<placement.range.lowerBound]))
+
+            // A repeated identical token used to render the same list twice, mirrored.
+            // Each group is now drawn once, at its first token.
+            let key = groupKey(placement.type, placement.group)
+            if hasItems(note, type: placement.type, group: placement.group), !placedKeys.contains(key) {
+                placedKeys.insert(key)
+                appendList(placement.type, group: placement.group)
+            }
+
+            cursor = placement.range.upperBound
+        }
+
+        appendText(String(content[cursor..<content.endIndex]))
+
+        // Groups that hold items but whose token is missing from the text still render,
+        // so items can never become invisible and unreachable.
+        for (type, group) in populatedGroups(in: note) where !placedKeys.contains(groupKey(type, group)) {
+            appendList(type, group: group, suffix: "-fallback")
+        }
+
+        return elements
+    }
+
+    private func groupKey(_ type: NoteListPlacementType, _ group: Int) -> String {
+        "\(type.rawValue)-\(group)"
+    }
+
+    private func hasItems(_ note: Note, type: NoteListPlacementType, group: Int) -> Bool {
+        switch type {
+        case .bullets:
+            return note.listItems.contains { $0.kind == .bullet && $0.group == group }
+        case .numbers:
+            return note.listItems.contains { $0.kind == .numbered && $0.group == group }
+        case .checklist:
+            return note.checklistItems.contains { $0.group == group }
+        }
+    }
+
+    /// Every (type, group) pair that actually has items, in a stable order.
+    private func populatedGroups(in note: Note) -> [(NoteListPlacementType, Int)] {
+        var pairs: [(NoteListPlacementType, Int)] = []
+
+        for type in NoteListPlacementType.allCases {
+            let groups: Set<Int>
+            switch type {
+            case .bullets:
+                groups = Set(note.listItems.filter { $0.kind == .bullet }.map(\.group))
+            case .numbers:
+                groups = Set(note.listItems.filter { $0.kind == .numbered }.map(\.group))
+            case .checklist:
+                groups = Set(note.checklistItems.map(\.group))
+            }
+            pairs.append(contentsOf: groups.sorted().map { (type, $0) })
+        }
+
+        return pairs
+    }
+
+    private func renderedKind(for type: NoteListPlacementType, group: Int) -> NoteRenderedContentKind {
+        switch type {
+        case .bullets: return .bullets(group)
+        case .checklist: return .checklist(group)
+        case .numbers: return .numbers(group)
+        }
+    }
+
     private func closeTabPopup() {
         showingTabPopup = false
         newTabName = ""
@@ -514,7 +1074,7 @@ struct NotesView: View {
                         showPremiumRequiredMessage("Premium unlocks more note tabs.")
                     }
                 } label: {
-                    Image("addtab")
+                    Image("addwavy")
                         .renderingMode(.template)
                         .resizable()
                         .scaledToFit()
@@ -530,7 +1090,7 @@ struct NotesView: View {
                         showPremiumRequiredMessage("Premium unlocks more notes per tab.")
                     }
                 } label: {
-                    Image("addwavy")
+                    Image("editing")
                         .renderingMode(.template)
                         .resizable()
                         .scaledToFit()
@@ -556,9 +1116,9 @@ struct NotesView: View {
         }
         .padding(.horizontal, LSpacing.pageHorizontal)
     }
-    
+
     // MARK: - Filters
-    
+
     private var filterSection: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
@@ -595,9 +1155,9 @@ struct NotesView: View {
             .padding(.horizontal, LSpacing.pageHorizontal)
         }
     }
-    
+
     // MARK: - Tabs Section
-    
+
     private var tabsSection: some View {
         FlowLayout(spacing: 10) {
             ForEach(notesTabs, id: \.self) { tab in
@@ -671,9 +1231,9 @@ struct NotesView: View {
         }
         .padding(.horizontal, LSpacing.pageHorizontal)
     }
-    
+
     // MARK: - Notes Section
-    
+
     @ViewBuilder
     private var notesSection: some View {
         if filteredNotes.isEmpty {
@@ -720,10 +1280,12 @@ struct NotesView: View {
                     spacing: 14
                 ) {
                     ForEach(visibleNotes) { note in
-                        NoteStickyCard(
-                            note: note,
-                            stickyColor: color(from: note.colorHex),
-                            availableTabs: notesTabs,
+	                        NoteStickyCard(
+	                            note: note,
+	                            stickyColor: color(from: note.colorHex),
+	                            secondaryStickyColor: color(from: note.secondaryColorHex),
+	                            usesGradient: note.usesGradient,
+	                            availableTabs: notesTabs,
                             isCollapsed: note.isPinned
                                 ? Binding(
                                     get: { collapsedPinnedIDs.contains(collapseID(for: note)) },
@@ -860,39 +1422,19 @@ struct NotesView: View {
                             .foregroundStyle(.white)
                     }
                     .buttonStyle(.plain)
-                    .disabled(note.trimmedContent.isEmpty && note.checklistItems.isEmpty)
-                    .opacity((note.trimmedContent.isEmpty && note.checklistItems.isEmpty) ? 0.45 : 1)
+                    .disabled(note.contentWithoutListPlacementTokens.isEmpty && note.listItems.isEmpty && note.checklistItems.isEmpty)
+                    .opacity((note.contentWithoutListPlacementTokens.isEmpty && note.listItems.isEmpty && note.checklistItems.isEmpty) ? 0.45 : 1)
                     .accessibilityLabel("Copy content")
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
-                    if note.trimmedContent.isEmpty && note.checklistItems.isEmpty {
+                    if note.contentWithoutListPlacementTokens.isEmpty && note.listItems.isEmpty && note.checklistItems.isEmpty {
                         Text("Empty note")
                             .font(NoteFontOption.option(for: note.fontID).font(size: CGFloat(note.resolvedFontSize)))
                             .foregroundStyle(.white.opacity(0.78))
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
-                        if !note.trimmedContent.isEmpty {
-                            Text(note.content)
-                                .font(NoteFontOption.option(for: note.fontID).font(size: CGFloat(note.resolvedFontSize)))
-                                .foregroundStyle(.white)
-                                .lineSpacing(3)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-
-                        if !note.checklistItems.isEmpty {
-                            NoteChecklistInteractiveDisplay(
-                                items: note.checklistItems,
-                                font: NoteFontOption.option(for: note.fontID),
-                                textColor: .white,
-                                circleSize: 22,
-                                textSize: CGFloat(note.resolvedFontSize),
-                                rowSpacing: 9,
-                                onToggle: { item in
-                                    toggleChecklistItem(item, in: note)
-                                }
-                            )
-                        }
+                        renderedNoteContent(note)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -929,6 +1471,55 @@ struct NotesView: View {
                     Spacer(minLength: 0)
                 }
                 .padding(.top, 2)
+            }
+        }
+    }
+
+    private func renderedNoteContent(_ note: Note) -> some View {
+        let font = NoteFontOption.option(for: note.fontID)
+        let textSize = CGFloat(note.resolvedFontSize)
+        let elements = renderedContentElements(for: note)
+
+        return VStack(alignment: .leading, spacing: 12) {
+            ForEach(elements) { element in
+                switch element.kind {
+                case .text(let text):
+                    Text(text)
+                        .font(font.font(size: textSize))
+                        .foregroundStyle(.white)
+                        .lineSpacing(3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                case .bullets(let group):
+                    NoteListDisplay(
+                        items: note.listItems.filter { $0.kind == .bullet && $0.group == group },
+                        font: font,
+                        textColor: .white,
+                        markerSize: 22,
+                        textSize: textSize,
+                        rowSpacing: 9
+                    )
+                case .checklist(let group):
+                    NoteChecklistInteractiveDisplay(
+                        items: note.checklistItems.filter { $0.group == group },
+                        font: font,
+                        textColor: .white,
+                        circleSize: 22,
+                        textSize: textSize,
+                        rowSpacing: 9,
+                        onToggle: { item in
+                            toggleChecklistItem(item, in: note)
+                        }
+                    )
+                case .numbers(let group):
+                    NoteListDisplay(
+                        items: note.listItems.filter { $0.kind == .numbered && $0.group == group },
+                        font: font,
+                        textColor: .white,
+                        markerSize: 22,
+                        textSize: textSize,
+                        rowSpacing: 9
+                    )
+                }
             }
         }
     }
@@ -998,134 +1589,205 @@ struct NotesView: View {
         }
     }
 
-    private var popupContent: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            GlassCardNote {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .center) {
-                        Text("Content")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.white)
+    private func popupContentEditor(for note: Note) -> some View {
+        GlassCardNote {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .center) {
+                    Text("Content")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white)
 
-                        Spacer()
+                    Spacer()
 
-                        Button {
-                            if voiceManager.isRecording {
-                                let transcript = voiceManager.liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
-                                voiceManager.stopRecording()
-                                if !transcript.isEmpty {
-                                    if draftContent.isEmpty {
-                                        draftContent = transcript
-                                    } else {
-                                        draftContent += " " + transcript
-                                    }
+                    Button {
+                        if voiceManager.isRecording {
+                            let transcript = voiceManager.liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+                            voiceManager.stopRecording()
+                            if !transcript.isEmpty {
+                                if draftContent.isEmpty {
+                                    draftContent = transcript
+                                } else {
+                                    draftContent += " " + transcript
                                 }
-                            } else {
-                                Task { await voiceManager.startRecording() }
                             }
-                        } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(voiceManager.isRecording
-                                          ? Color.white.opacity(0.18)
-                                          : Color.white.opacity(0.08))
-                                    .overlay(
-                                        Circle()
-                                            .stroke(LColors.glassBorder, lineWidth: 1)
-                                    )
-                                    .frame(width: 34, height: 34)
-
-                                Image(voiceManager.isRecording ? "stopwavy" : "micfill")
-                                    .renderingMode(.template)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 14, height: 14)
-                                    .foregroundStyle(
-                                        (voiceManager.isRecording || !didInsertTranscript)
-                                            ? .white
-                                            : LColors.textSecondary
-                                    )
-                            }
+                        } else {
+                            Task { await voiceManager.startRecording() }
                         }
-                        .buttonStyle(.plain)
-                        .disabled(!voiceManager.isRecording && didInsertTranscript)
-                    }
-
-                    if voiceManager.isRecording {
-                        HStack(spacing: 8) {
+                    } label: {
+                        ZStack {
                             Circle()
-                                .fill(Color.red)
-                                .frame(width: 7, height: 7)
-
-                            Text(voiceManager.liveTranscript.isEmpty
-                                 ? "Listening..."
-                                 : voiceManager.liveTranscript)
-                                .font(.system(size: 13, weight: .regular))
-                                .foregroundStyle(.white)
-                                .lineLimit(3)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .padding(10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.white.opacity(0.06))
+                                .fill(voiceManager.isRecording
+                                      ? Color.white.opacity(0.18)
+                                      : Color.white.opacity(0.08))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    Circle()
                                         .stroke(LColors.glassBorder, lineWidth: 1)
                                 )
-                        )
-                    }
+                                .frame(width: 34, height: 34)
 
-                    if let error = voiceManager.permissionError {
-                        Text(error.errorDescription ?? "An error occurred.")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(Color.red.opacity(0.85))
+                            Image(voiceManager.isRecording ? "stopwavy" : "micfill")
+                                .renderingMode(.template)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 14, height: 14)
+                                .foregroundStyle(
+                                    (voiceManager.isRecording || !didInsertTranscript)
+                                        ? .white
+                                        : LColors.textSecondary
+                                )
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!voiceManager.isRecording && didInsertTranscript)
+                }
+
+                if voiceManager.isRecording {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 7, height: 7)
+
+                        Text(voiceManager.liveTranscript.isEmpty
+                             ? "Listening..."
+                             : voiceManager.liveTranscript)
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundStyle(.white)
+                            .lineLimit(3)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-
-                    GlassTextEditor(
-                        placeholder: "Write anything...",
-                        text: $draftContent,
-                        minHeight: 210,
-                        font: draftFontOption.font(size: draftFontSizeValue)
+                    .padding(10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.white.opacity(0.06))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(LColors.glassBorder, lineWidth: 1)
+                            )
                     )
-                    .id("note-editor-\(draftFontID)-\(Int(draftFontSize))")
-                    .focused($isEditorFocused)
+                }
 
-                    NoteChecklistEditor(
-                        items: $draftChecklistItems,
-                        font: draftFontOption,
-                        fontSize: draftFontSizeValue
-                    )
-                    .id("note-checklist-editor-\(draftFontID)-\(Int(draftFontSize))")
+                if let error = voiceManager.permissionError {
+                    Text(error.errorDescription ?? "An error occurred.")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.red.opacity(0.85))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Sticky Note Color")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.white)
-
-                        HStack(spacing: 12) {
-                            ColorPicker("", selection: $draftColor, supportsOpacity: false)
-                                .labelsHidden()
-                                .onChange(of: draftColor) { _, newColor in
-                                    draftColorHex = hexString(from: newColor)
-                                }
-
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(draftColor)
-                                .frame(width: 44, height: 44)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .stroke(LColors.glassBorder, lineWidth: 1)
-                                )
-
-                            Text(draftColorHex)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(LColors.textSecondary)
-                        }
+                GlassRichTextEditor(
+                    placeholder: "Write anything...",
+                    text: $draftRichContent,
+                    minHeight: 210,
+                    placeholderFontID: $draftFontID,
+                    placeholderFontSize: $draftFontSize
+                )
+                .focused($isEditorFocused)
+                .onChange(of: draftRichContent) { _, newValue in
+                    // Typing flows rich -> plain. draftContent stays the source of truth
+                    // for saving and for the token parsing everything else relies on.
+                    let plain = String(newValue.characters)
+                    if plain != draftContent {
+                        draftContent = plain
                     }
                 }
+                .onChange(of: draftContent) { oldValue, newValue in
+                    handleDraftContentChange(oldValue: oldValue, newValue: newValue)
+
+                    // Only rebuild when the change came from outside the editor (token
+                    // insertion, dictation). Rebuilding on every keystroke would reset
+                    // the caret.
+                    if String(draftRichContent.characters) != newValue {
+                        draftRichContent = styledDraftContent(newValue)
+                    }
+                }
+                .onChange(of: draftFontID) { _, _ in
+                    draftRichContent = styledDraftContent(draftContent)
+                }
+                .onChange(of: draftFontSize) { _, _ in
+                    draftRichContent = styledDraftContent(draftContent)
+                }
+
+                if showListCommandMenu {
+                    listCommandMenu
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
+        }
+    }
+
+    private func popupContent(for note: Note) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            popupContentEditor(for: note)
+
+            GlassCardNote {
+                VStack(alignment: .leading, spacing: 12) {
+                    NoteListTypesEditor(
+                        listItems: $draftListItems,
+                        checklistItems: $draftChecklistItems,
+                        onShowHelp: {
+                            saveDraftInPlace(for: note)
+                            DispatchQueue.main.async {
+                                showListTypeHelpSheet = true
+                            }
+                        },
+                        onOpenType: { type in
+                            editingListType = type
+                        }
+                    )
+
+	                    VStack(alignment: .leading, spacing: 10) {
+	                        Text("Sticky Note Color")
+	                            .font(.system(size: 13, weight: .bold))
+	                            .foregroundStyle(.white)
+
+	                        VStack(alignment: .leading, spacing: 12) {
+	                            noteColorPickerRow(
+	                                title: "Primary",
+	                                color: $draftColor,
+	                                hex: $draftColorHex
+	                            )
+
+	                            Button {
+	                                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+	                                    draftUsesGradient.toggle()
+	                                }
+	                            } label: {
+	                                HStack(spacing: 12) {
+	                                    Text("Gradient")
+	                                        .font(.system(size: 13, weight: .bold, design: .rounded))
+	                                        .foregroundStyle(.white)
+
+	                                    Spacer()
+
+	                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+	                                        .fill(draftUsesGradient ? AnyShapeStyle(LGradients.header) : AnyShapeStyle(Color.white.opacity(0.12)))
+	                                        .frame(width: 50, height: 28)
+	                                        .overlay(
+	                                            Circle()
+	                                                .fill(.white)
+	                                                .frame(width: 22, height: 22)
+	                                                .offset(x: draftUsesGradient ? 11 : -11)
+	                                                .shadow(color: .black.opacity(0.20), radius: 4, y: 2)
+	                                        )
+	                                        .overlay(
+	                                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+	                                                .stroke(Color.white.opacity(0.22), lineWidth: 1)
+	                                        )
+	                                }
+	                            }
+	                            .buttonStyle(.plain)
+
+	                            if draftUsesGradient {
+	                                noteColorPickerRow(
+	                                    title: "Second",
+	                                    color: $draftSecondaryColor,
+	                                    hex: $draftSecondaryColorHex
+	                                )
+	                                .transition(.opacity.combined(with: .move(edge: .top)))
+	                            }
+	                        }
+	                    }
+	                }
+	            }
 
             GlassCardNote {
                 NoteFontPicker(selectedFontID: $draftFontID)
@@ -1134,7 +1796,7 @@ struct NotesView: View {
             GlassCardNote {
                 NoteFontSizeControl(
                     fontSize: $draftFontSize,
-                    font: draftFontOption
+                    fontID: $draftFontID
                 )
             }
 
@@ -1145,10 +1807,22 @@ struct NotesView: View {
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(.white)
 
-                        GlassTextField(
+                        NotesGradientDoneTextField(
                             placeholder: "Add a label",
-                            text: $draftLabel1
+                            text: $draftLabel1,
+                            fontOption: .system,
+                            fontSize: 15
                         )
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: LSpacing.inputRadius, style: .continuous)
+                                .fill(Color.white.opacity(0.12))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: LSpacing.inputRadius, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.46), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: LSpacing.inputRadius, style: .continuous))
                     }
 
                     Rectangle()
@@ -1160,10 +1834,22 @@ struct NotesView: View {
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(.white)
 
-                        GlassTextField(
+                        NotesGradientDoneTextField(
                             placeholder: "Add a label",
-                            text: $draftLabel2
+                            text: $draftLabel2,
+                            fontOption: .system,
+                            fontSize: 15
                         )
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: LSpacing.inputRadius, style: .continuous)
+                                .fill(Color.white.opacity(0.12))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: LSpacing.inputRadius, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.46), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: LSpacing.inputRadius, style: .continuous))
                     }
                 }
             }
@@ -1340,7 +2026,7 @@ struct NotesView: View {
         case .recent: return "Recent notes will appear here."
         }
     }
-    
+
     private var rootTabName: String {
         tabs.first(where: { $0.isRootTab })?.trimmedName
             ?? tabs.first?.trimmedName
@@ -1382,7 +2068,7 @@ struct NotesView: View {
         }
         try? modelContext.save()
     }
-    
+
     private func collapseID(for note: Note) -> String {
         String(describing: note.id)
     }
@@ -1394,7 +2080,7 @@ struct NotesView: View {
             .filter { !$0.isEmpty }
         collapsedPinnedIDs = Set(values)
     }
-    
+
     private func createTab() {
         guard canCreateTab else {
             showPremiumRequiredMessage("Premium unlocks more note tabs.")
@@ -1451,7 +2137,7 @@ struct NotesView: View {
         if selectedTab == renamingTabName { selectedTab = trimmed }
         renamedTabName = ""; renamingTabName = ""
     }
-    
+
     private func moveTabLeft(_ tabName: String) {
         moveTab(tabName, direction: -1)
     }
@@ -1544,7 +2230,10 @@ struct NotesView: View {
         let note = Note(
             content: "",
             colorHex: "#6B4CDE",
+            secondaryColorHex: "#22D3EE",
+            usesGradient: false,
             checklistItemsJSON: "",
+            listItemsJSON: "",
             fontID: NoteFontOption.system.rawValue,
             fontSize: 15,
             label: "",
@@ -1556,17 +2245,29 @@ struct NotesView: View {
             updatedAt: Date()
         )
         modelContext.insert(note)
-        selectedNote = note
         draftContent = ""
+        draftRichContent = AttributedString()
         draftChecklistItems = []
+        draftListItems = []
+        draftSelectedListType = .bullets
+        draftSlashCommandOffset = nil
+        showListCommandMenu = false
         draftFontID = note.fontID
         draftFontSize = note.resolvedFontSize
         draftLabel1 = note.label
         draftLabel2 = note.label2
         draftColorHex = note.colorHex
+        draftSecondaryColorHex = note.secondaryColorHex
         draftColor = color(from: note.colorHex)
+        draftSecondaryColor = color(from: note.secondaryColorHex)
+        draftUsesGradient = note.usesGradient
         draftDate = note.createdAt
         isCreatingNote = true
+
+        // Same reason as startEditing: let the draft state commit before the sheet builds.
+        DispatchQueue.main.async {
+            selectedNote = note
+        }
     }
 
     private func open(_ note: Note) {
@@ -1575,20 +2276,43 @@ struct NotesView: View {
     }
 
     private func startEditing(_ note: Note) {
+        // TEMP DIAGNOSTIC — remove once the font issue is resolved.
+        print("[FONTDBG] startEditing note.fontID=\(note.fontID) note.fontSize=\(note.resolvedFontSize)")
         resetCopiedBanner()
         viewingNote = nil
-        selectedNote = note
         draftContent = note.content
+        // Built from the note directly rather than from draft state, which has not been
+        // assigned yet at this point.
+        draftRichContent = styledContent(
+            note.content,
+            fontOption: NoteFontOption.option(for: note.fontID),
+            fontSize: CGFloat(note.resolvedFontSize)
+        )
         draftChecklistItems = note.checklistItems
+        draftListItems = note.listItems
+        draftSelectedListType = .bullets
+        draftSlashCommandOffset = nil
+        showListCommandMenu = false
         draftFontID = note.fontID
         draftFontSize = note.resolvedFontSize
         draftLabel1 = note.label
         draftLabel2 = note.label2
         draftColorHex = note.colorHex
+        draftSecondaryColorHex = note.secondaryColorHex
         draftColor = color(from: note.colorHex)
+        draftSecondaryColor = color(from: note.secondaryColorHex)
+        draftUsesGradient = note.usesGradient
         draftDate = note.updatedAt
         isCreatingNote = false
         showDeleteConfirmation = false
+
+        // Present on the next runloop so every draft value above is committed first.
+        // Presenting in the same update pass let the sheet build its body while
+        // draftFontID still held the previous value, which is why the list rows and the
+        // font size preview rendered in the system font on the first open after launch.
+        DispatchQueue.main.async {
+            selectedNote = note
+        }
     }
 
     private func closeViewer() {
@@ -1601,38 +2325,98 @@ struct NotesView: View {
     private func closeEditor() {
         voiceManager.stopRecording()
         didInsertTranscript = false
+        editingListType = nil
         selectedNote = nil
         viewingNote = nil
         draftContent = ""
+        draftRichContent = AttributedString()
         draftChecklistItems = []
+        draftListItems = []
+        draftSelectedListType = .bullets
+        draftSlashCommandOffset = nil
+        showListCommandMenu = false
         draftFontID = NoteFontOption.system.rawValue
         draftFontSize = 15
         draftLabel1 = ""
         draftLabel2 = ""
         draftColorHex = "#6B4CDE"
+        draftSecondaryColorHex = "#22D3EE"
         draftColor = Color(red: 107 / 255, green: 76 / 255, blue: 222 / 255)
+        draftSecondaryColor = Color(red: 34 / 255, green: 211 / 255, blue: 238 / 255)
+        draftUsesGradient = false
         draftDate = Date()
         isCreatingNote = false
         showDeleteConfirmation = false
     }
 
     private func saveChanges(for note: Note) {
+        applyDraft(to: note, preservingEmptyItems: false)
+        note.touch()
+
+        do {
+            try modelContext.save()
+            // TEMP DIAGNOSTIC — remove once the font issue is resolved.
+            print("[FONTDBG] saved. note.fontID=\(note.fontID) note.fontSize=\(note.fontSize) contextHasChanges=\(modelContext.hasChanges)")
+            LunixiaStickyNoteWidgetWriter.write(notes: notes, tabs: tabs)
+        } catch {
+            print("[FONTDBG] SAVE FAILED: \(error)")
+        }
+        closeEditor()
+    }
+
+    private func saveDraftInPlace(for note: Note) {
+        applyDraft(to: note, preservingEmptyItems: true)
+        note.touch()
+
+        do {
+            try modelContext.save()
+            LunixiaStickyNoteWidgetWriter.write(notes: notes, tabs: tabs)
+        } catch {
+            print("Failed to save note before showing list help: \(error)")
+        }
+    }
+
+    private func applyDraft(to note: Note, preservingEmptyItems: Bool) {
+        // TEMP DIAGNOSTIC — remove once the font issue is resolved.
+        print("[FONTDBG] applyDraft writing fontID=\(draftFontID) size=\(draftFontSize) (was \(note.fontID)/\(note.fontSize))")
         note.content = draftContent
-        note.checklistItems = draftChecklistItems
+        var preparedListItems = draftListItems
+            .map { item in
+                NoteListItem(
+                    id: item.id,
+                    title: item.title.trimmingCharacters(in: .whitespacesAndNewlines),
+                    kind: item.kind,
+                    createdAt: item.createdAt,
+                    group: item.group
+                )
+            }
+        if !preservingEmptyItems {
+            preparedListItems = preparedListItems.filter { !$0.title.isEmpty }
+        }
+        note.listItems = preparedListItems
+
+        var preparedChecklistItems = draftChecklistItems
             .map { item in
                 NoteChecklistItem(
                     id: item.id,
                     title: item.title.trimmingCharacters(in: .whitespacesAndNewlines),
                     isCompleted: item.isCompleted,
-                    createdAt: item.createdAt
+                    createdAt: item.createdAt,
+                    group: item.group
                 )
             }
-            .filter { !$0.title.isEmpty }
+        if !preservingEmptyItems {
+            preparedChecklistItems = preparedChecklistItems.filter { !$0.title.isEmpty }
+        }
+        note.checklistItems = preparedChecklistItems
+
         note.fontID = draftFontID
         note.fontSize = min(Note.maximumFontSize, max(Note.minimumFontSize, draftFontSize))
         note.label = draftLabel1.trimmingCharacters(in: .whitespacesAndNewlines)
         note.label2 = draftLabel2.trimmingCharacters(in: .whitespacesAndNewlines)
         note.colorHex = draftColorHex
+        note.secondaryColorHex = draftSecondaryColorHex
+        note.usesGradient = draftUsesGradient
 
         if isCreatingNote {
             note.createdAt = draftDate
@@ -1640,14 +2424,6 @@ struct NotesView: View {
         } else {
             note.updatedAt = draftDate
         }
-
-        do {
-            try modelContext.save()
-            LunixiaStickyNoteWidgetWriter.write(notes: notes, tabs: tabs)
-        } catch {
-            print("Failed to save note: \(error)")
-        }
-        closeEditor()
     }
 
     private func color(from hex: String) -> Color {
@@ -1727,13 +2503,38 @@ struct NotesView: View {
     }
 
     private func copyNoteContent(_ note: Note) {
-        let content = note.trimmedContent
-        let checklistText = note.checklistItems
-            .map { item in
-                "\(item.isCompleted ? "[x]" : "[ ]") \(item.title)"
+        let elements = renderedContentElements(for: note)
+        let exportText = elements.map { element -> String in
+            switch element.kind {
+            case .text(let text):
+                return text
+            case .bullets(let group):
+                return note.listItems
+                    .filter { $0.kind == .bullet && $0.group == group }
+                    .map { $0.title.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                    .map { "- \($0)" }
+                    .joined(separator: "\n")
+            case .checklist(let group):
+                return note.checklistItems
+                    .filter { $0.group == group }
+                    .compactMap { item in
+                        let title = item.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !title.isEmpty else { return nil }
+                        return "\(item.isCompleted ? "[x]" : "[ ]") \(title)"
+                    }
+                    .joined(separator: "\n")
+            case .numbers(let group):
+                return note.listItems
+                    .filter { $0.kind == .numbered && $0.group == group }
+                    .enumerated()
+                    .map { index, item in
+                        "\(index + 1). \(item.title.trimmingCharacters(in: .whitespacesAndNewlines))"
+                    }
+                    .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                    .joined(separator: "\n")
             }
-            .joined(separator: "\n")
-        let exportText = [content, checklistText]
+        }
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: "\n\n")
@@ -1772,28 +2573,30 @@ struct NotesView: View {
 private struct NoteStickyCard: View {
     let note: Note
     let stickyColor: Color
+    let secondaryStickyColor: Color
+    let usesGradient: Bool
     let availableTabs: [String]
     @Binding var isCollapsed: Bool
     let action: () -> Void
     let onToggleChecklistItem: (NoteChecklistItem) -> Void
     let onMoveToTab: (String) -> Void
     let onDelete: () -> Void
-    
+
     private var cardHeight: CGFloat { note.isPinned && isCollapsed ? 96 : 190 }
     private var previewLineLimit: Int { note.isPinned && isCollapsed ? 3 : 8 }
     private var cardFontSize: CGFloat {
         min(max(CGFloat(note.resolvedFontSize) * 0.82, 11), 15)
     }
-    
+
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(stickyColor)
+                .fill(stickyFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .stroke(Color.white.opacity(0.16), lineWidth: 1)
                 )
-                
+
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .top, spacing: 8) {
                         HStack(spacing: 8) {
@@ -1819,9 +2622,9 @@ private struct NoteStickyCard: View {
                                     .foregroundStyle(.white).frame(width: 18, height: 18)
                             }
                         }
-                        
+
                         Spacer(minLength: 0)
-                        
+
                         VStack(alignment: .trailing, spacing: 5) {
                             if note.isPinned && !isCollapsed { stickyBadge(text: "PINNED") }
                             ForEach(displayedBadges, id: \.self) { badge in stickyBadge(text: badge) }
@@ -1829,23 +2632,35 @@ private struct NoteStickyCard: View {
                         .frame(maxWidth: 92, alignment: .trailing)
                         .layoutPriority(0)
                     }
-                    
+
                     VStack(alignment: .leading, spacing: 6) {
-                        if previewText == "Empty note" && displayedChecklistItems.isEmpty {
+                        if previewText == "Empty note" && displayedListItems.isEmpty && displayedChecklistItems.isEmpty {
                             Text(previewText)
                                 .font(NoteFontOption.option(for: note.fontID).font(size: cardFontSize, weight: .medium))
                                 .foregroundStyle(Color.black.opacity(0.60))
                                 .lineLimit(2)
                         } else {
-                            if !note.trimmedContent.isEmpty {
-                                Text(note.content)
-                                    .font(NoteFontOption.option(for: note.fontID).font(size: cardFontSize, weight: .medium))
-                                    .foregroundStyle(Color.black.opacity(0.82))
-                                    .lineSpacing(2)
-                                    .lineLimit(cardTextLineLimit)
-                            }
+	                            if !cardContent.isEmpty {
+	                                Text(cardContent)
+	                                    .font(NoteFontOption.option(for: note.fontID).font(size: cardFontSize, weight: .medium))
+	                                    .foregroundStyle(Color.black.opacity(0.82))
+	                                    .lineSpacing(2)
+	                                    .lineLimit(cardTextLineLimit)
+	                            }
 
-                            if !displayedChecklistItems.isEmpty {
+	                            if !displayedListItems.isEmpty {
+	                                NoteListDisplay(
+	                                    items: displayedListItems,
+	                                    font: NoteFontOption.option(for: note.fontID),
+	                                    textColor: Color.black.opacity(0.82),
+	                                    markerSize: 16,
+	                                    textSize: max(10, cardFontSize - 1),
+	                                    lineLimit: 1,
+	                                    rowSpacing: 5
+	                                )
+	                            }
+
+	                            if !displayedChecklistItems.isEmpty {
                                 NoteChecklistInteractiveDisplay(
                                     items: displayedChecklistItems,
                                     font: NoteFontOption.option(for: note.fontID),
@@ -1902,9 +2717,9 @@ private struct NoteStickyCard: View {
                     }
                 }
             }
-            
+
             Divider()
-            
+
             Button("Delete", role: .destructive) {
                 onDelete()
             }
@@ -1917,18 +2732,45 @@ private struct NoteStickyCard: View {
         return cleaned.isEmpty ? "Empty note" : cleaned
     }
 
+    private var stickyFill: AnyShapeStyle {
+        if usesGradient {
+            return AnyShapeStyle(
+                LinearGradient(
+                    colors: [stickyColor, secondaryStickyColor],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+        }
+        return AnyShapeStyle(stickyColor)
+    }
+
+    private var cardContent: String {
+        note.contentWithoutListPlacementTokens
+    }
+
+    private var displayedListItems: [NoteListItem] {
+        Array(note.listItems.prefix(listPreviewLimit))
+    }
+
+    private var listPreviewLimit: Int {
+        if note.isPinned && isCollapsed { return 1 }
+        if cardContent.isEmpty { return 3 }
+        return 2
+    }
+
     private var displayedChecklistItems: [NoteChecklistItem] {
         Array(note.checklistItems.prefix(checklistPreviewLimit))
     }
 
     private var checklistPreviewLimit: Int {
         if note.isPinned && isCollapsed { return 1 }
-        if note.trimmedContent.isEmpty { return 3 }
+        if cardContent.isEmpty { return 3 }
         return 2
     }
 
     private var cardTextLineLimit: Int {
-        if !displayedChecklistItems.isEmpty {
+        if !displayedListItems.isEmpty || !displayedChecklistItems.isEmpty {
             return note.isPinned && isCollapsed ? 1 : 3
         }
         return previewLineLimit

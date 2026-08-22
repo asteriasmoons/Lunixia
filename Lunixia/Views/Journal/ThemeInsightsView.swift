@@ -333,7 +333,7 @@ struct ThemeInsightsView: View {
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundStyle(
                                     item.trend == "declining"
-                                        ? Color(lunixiaHex: "#dc3beb")
+                                        ? LColors.danger
                                         : Color(lunixiaHex: "#e2ed8a")
                                 )
                         }

@@ -35,6 +35,15 @@ struct JournalTabView: View {
             isPremium: isPremium
         )
     }
+
+    private var themeInsightsUserId: String? {
+        guard let userId = appState.currentAppleUserId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !userId.isEmpty else {
+            return nil
+        }
+        return userId
+    }
+
     @Query private var journalStatsRecords: [JournalStats]
     
     @State private var editingBook: JournalBook? = nil
@@ -81,9 +90,9 @@ struct JournalTabView: View {
                             .padding(.horizontal, LSpacing.pageHorizontal)
                             .padding(.bottom, 12)
 
-                        if let userId = appState.currentAppleUserId {
+                        if let themeInsightsUserId {
                             NavigationLink {
-                                ThemeInsightsView(userId: userId)
+                                ThemeInsightsView(userId: themeInsightsUserId)
                             } label: {
                                 ThemeInsightsCard()
                             }
@@ -147,11 +156,10 @@ struct JournalTabView: View {
                 scheduleMindfulMinutesMidnightRefresh()
                 updateBestStreakIfNeeded()
 
-                // One-time backfill of tags + mindful minutes for Theme Insights
-                if let userId = appState.currentAppleUserId {
+                if let themeInsightsUserId {
                     ThemeInsightsBackfillManager.backfillIfNeeded(
                         modelContext: modelContext,
-                        userId: userId
+                        userId: themeInsightsUserId
                     )
                 }
             }
@@ -532,7 +540,7 @@ struct JournalTabView: View {
                         .renderingMode(.template)
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 26, height: 26)
+                        .frame(width: 24, height: 24)
                         .foregroundStyle(LGradients.header)
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -555,17 +563,15 @@ struct JournalTabView: View {
         }
     }
 
-    // MARK: - Theme Insights Card
-
     struct ThemeInsightsCard: View {
         var body: some View {
             GlassCard {
                 HStack(spacing: 12) {
-                    Image("tagstar")
+                    Image("starchart")
                         .renderingMode(.template)
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 26, height: 26)
+                        .frame(width: 24, height: 24)
                         .foregroundStyle(LGradients.header)
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -573,9 +579,11 @@ struct JournalTabView: View {
                             .font(.system(size: 15, weight: .black, design: .rounded))
                             .foregroundStyle(.white)
 
-                        Text("Patterns throughout your journal entries")
+                        Text("Patterns from your journal themes and tags")
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
                             .foregroundStyle(LColors.textSecondary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
                     }
 
                     Spacer()
@@ -584,8 +592,8 @@ struct JournalTabView: View {
                         .renderingMode(.template)
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 24, height: 24)
-                        .foregroundStyle(LColors.textSecondary)
+                        .frame(width: 18, height: 18)
+                        .foregroundStyle(LGradients.header)
                 }
             }
         }
@@ -920,7 +928,7 @@ struct JournalTabView: View {
                     }
                     .frame(width: horizontalSizeClass == .regular ? w * 0.66 : w * 0.86, height: horizontalSizeClass == .regular ? h * 0.86 : h)
                     .offset(y: horizontalSizeClass == .regular ? h * 0.02 : 0)
-                    .shadow(color: Color(lunixiaHex: "#7d19f7").opacity(0.30), radius: 16, x: 0, y: 8)
+                    .shadow(color: Color(lunixiaHex: "#6111b8").opacity(0.24), radius: 16, x: 0, y: 8)
                     .shadow(color: .black.opacity(0.22), radius: 14, x: 10, y: 12)
                     .rotation3DEffect(.degrees(-10), axis: (x: 0, y: 1, z: 0))
                     .offset(x: -w * 0.06)

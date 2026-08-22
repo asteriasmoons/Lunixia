@@ -54,7 +54,7 @@ final class MoodStatsContextService {
     static let shared = MoodStatsContextService()
     private init() {}
 
-    private let baseURL = "https://appapi.vox.com.im"
+    private let baseURL = "https://appapi.voxiverse.ink"
 
     func generateContext(_ payload: MoodStatsContextRequest) async throws -> MoodStatsContextResponse {
         guard let url = URL(string: "\(baseURL)/api/mood/stats/context") else {

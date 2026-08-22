@@ -12,7 +12,7 @@ import SwiftData
 enum ThemeInsightsBackfillManager {
 
     private static let backfillKey = "lunixia_theme_insights_backfilled_v5"
-    private static let baseURL = "https://appapi.vox.com.im"
+    private static let baseURL = "https://appapi.voxiverse.ink"
 
     static var hasBackfilled: Bool {
         UserDefaults.standard.bool(forKey: backfillKey)

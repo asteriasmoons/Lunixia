@@ -66,7 +66,7 @@ final class MoodAnalysisService {
     static let shared = MoodAnalysisService()
     private init() {}
 
-    private let baseURL = "https://appapi.vox.com.im"
+    private let baseURL = "https://appapi.voxiverse.ink"
 
     func analyze(userId: String, entry: MoodEntry) async throws -> MoodAnalysisResponse {
         guard let url = URL(string: "\(baseURL)/api/mood/analyze") else {

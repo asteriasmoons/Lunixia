@@ -11,13 +11,26 @@ struct LunixiaStickyNoteWidgetChecklistItem: Codable, Identifiable, Equatable {
     var id: UUID
     var title: String
     var isCompleted: Bool
+    /// Which placement group this item belongs to. Group 1 is the original single list.
+    var group: Int = 1
+}
+
+struct LunixiaStickyNoteWidgetListItem: Codable, Identifiable, Equatable {
+    var id: UUID
+    var title: String
+    var kind: String
+    /// Which placement group this item belongs to. Group 1 is the original single list.
+    var group: Int = 1
 }
 
 struct LunixiaStickyNoteWidgetNote: Codable, Identifiable, Equatable {
     var id: UUID
     var content: String
     var colorHex: String
+    var secondaryColorHex: String
+    var usesGradient: Bool
     var checklistItems: [LunixiaStickyNoteWidgetChecklistItem]
+    var listItems: [LunixiaStickyNoteWidgetListItem]
     var fontID: String
     var tabName: String
     var label: String
@@ -61,17 +74,28 @@ enum LunixiaStickyNoteWidgetWriter {
                 }
                 .map { note in
                     LunixiaStickyNoteWidgetNote(
-                        id: note.id,
-                        content: note.content,
-                        colorHex: note.colorHex,
-                        checklistItems: note.checklistItems.map {
-                            LunixiaStickyNoteWidgetChecklistItem(
-                                id: $0.id,
+	                        id: note.id,
+	                        content: note.content,
+	                        colorHex: note.colorHex,
+	                        secondaryColorHex: note.secondaryColorHex,
+	                        usesGradient: note.usesGradient,
+	                        checklistItems: note.checklistItems.map {
+	                            LunixiaStickyNoteWidgetChecklistItem(
+	                                id: $0.id,
                                 title: $0.title,
-                                isCompleted: pendingChecklistStates[toggleKey(noteID: note.id, itemID: $0.id)] ?? $0.isCompleted
-                            )
-                        },
-                        fontID: note.fontID,
+	                                isCompleted: pendingChecklistStates[toggleKey(noteID: note.id, itemID: $0.id)] ?? $0.isCompleted,
+	                                group: $0.group
+	                            )
+	                        },
+	                        listItems: note.listItems.map {
+	                            LunixiaStickyNoteWidgetListItem(
+	                                id: $0.id,
+	                                title: $0.title,
+	                                kind: $0.kind.rawValue,
+	                                group: $0.group
+	                            )
+	                        },
+	                        fontID: note.fontID,
                         tabName: resolvedTabName(for: note, rootTabName: rootTabName),
                         label: note.label,
                         label2: note.label2,

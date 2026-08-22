@@ -13,6 +13,7 @@ struct LunixiaApp: App {
 
     @StateObject private var appState = AppState()
     @StateObject private var storeManager = LunixiaStoreManager()
+
     static var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Item.self,
@@ -21,6 +22,7 @@ struct LunixiaApp: App {
             VitalsEntry.self,
             ExerciseEntry.self,
             WaterEntry.self,
+            HealthMetricHistoryEntry.self,
             HealthGoals.self,
             DailyHoroscopeRecord.self,
             DailyTarotRecord.self,

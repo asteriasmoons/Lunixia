@@ -12,7 +12,7 @@ final class UserProfileService {
     private let baseURL: String = {
         guard let url = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String,
               !url.isEmpty else {
-            return "https://appapi.vox.com.im"
+            return "https://appapi.voxiverse.ink"
         }
         return url
     }()
