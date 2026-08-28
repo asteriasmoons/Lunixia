@@ -43,6 +43,15 @@ final class JournalEntry {
     @Attribute(.externalStorage) var coverImageData: Data? = nil
     var coverImageVerticalOffset: Double = 0.0
 
+    // MARK: - Body Font
+    /// PostScript name of the custom body font selected for this entry.
+    /// Empty string means "use the default system font".
+    var bodyFontName: String = ""
+
+    /// Points added to every body/heading font size in this entry.
+    /// 0 = the block type's normal size; positive values grow, negative shrink.
+    var bodyFontSizeOffset: Double = 0
+
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
 

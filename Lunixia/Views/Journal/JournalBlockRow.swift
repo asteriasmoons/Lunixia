@@ -763,7 +763,7 @@ struct JournalBlockRow: View {
             calloutIconPicker
             JournalRichEditableBlockTextView(
                 block: block, selectedRange: $selectedRange,
-                baseUIFont: UIFont.systemFont(ofSize: 15, weight: .regular),
+                baseUIFont: (block.entry?.resolvedBodyUIFont(size: 15, weight: .regular) ?? UIFont.systemFont(ofSize: 15, weight: .regular)),
                 textColor: journalTextColor,
                 placeholder: "Write callout...", isCodeBlock: false,
                 isSelectionMode: isSelectionMode,
@@ -1519,16 +1519,24 @@ struct JournalBlockRow: View {
     }
 
     private func uiFontForBlockType(_ type: JournalBlockType) -> UIFont {
+        // Honor the entry's custom body font when one is set (except for code
+        // blocks, which stay monospaced). Falls back to the system font.
+        func bodyFont(size: CGFloat, weight: UIFont.Weight) -> UIFont {
+            if let entry = block.entry {
+                return entry.resolvedBodyUIFont(size: size, weight: weight)
+            }
+            return .systemFont(ofSize: size, weight: weight)
+        }
         switch type {
-        case .heading1, .toggleHeading1: return .systemFont(ofSize: 28, weight: .bold)
-        case .heading2, .toggleHeading2: return .systemFont(ofSize: 22, weight: .bold)
-        case .heading3, .toggleHeading3: return .systemFont(ofSize: 18, weight: .semibold)
-        case .heading4, .toggleHeading4: return .systemFont(ofSize: 16, weight: .semibold)
-        case .heading5, .toggleHeading5: return .systemFont(ofSize: 14, weight: .semibold)
-        case .heading6, .toggleHeading6: return .systemFont(ofSize: 13, weight: .medium)
-        case .blockquote:                return .systemFont(ofSize: 16, weight: .medium)
+        case .heading1, .toggleHeading1: return bodyFont(size: 28, weight: .bold)
+        case .heading2, .toggleHeading2: return bodyFont(size: 22, weight: .bold)
+        case .heading3, .toggleHeading3: return bodyFont(size: 18, weight: .semibold)
+        case .heading4, .toggleHeading4: return bodyFont(size: 16, weight: .semibold)
+        case .heading5, .toggleHeading5: return bodyFont(size: 14, weight: .semibold)
+        case .heading6, .toggleHeading6: return bodyFont(size: 13, weight: .medium)
+        case .blockquote:                return bodyFont(size: 16, weight: .medium)
         case .code:                      return .monospacedSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .regular)
-        default:                         return .systemFont(ofSize: 16, weight: .regular)
+        default:                         return bodyFont(size: 16, weight: .regular)
         }
     }
 }

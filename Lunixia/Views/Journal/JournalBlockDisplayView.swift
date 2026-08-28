@@ -26,6 +26,12 @@ struct JournalBlockDisplayView: View {
         return UIColor(red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1)
     }
 
+    /// Resolves the body font to use for this entry, honoring the entry's
+    /// custom `bodyFontName` when one is set (falls back to system font).
+    private func bodyUIFont(size: CGFloat, weight: UIFont.Weight) -> UIFont {
+        entry.resolvedBodyUIFont(size: size, weight: weight)
+    }
+
     private func indentPadding(for block: JournalBlock) -> CGFloat {
         switch block.type {
         case .paragraph, .heading1, .heading2, .heading3, .heading4, .heading5, .heading6,
@@ -112,44 +118,44 @@ struct JournalBlockDisplayView: View {
         switch block.type {
         case .paragraph:
             styledContent(block) {
-                journalTextBlock(block, font: .systemFont(ofSize: 16, weight: .regular))
+                journalTextBlock(block, font: bodyUIFont(size: 16, weight: .regular))
                     .padding(.leading, indentPadding(for: block))
             }
         case .heading1:
             styledContent(block) {
-                journalTextBlock(block, font: .systemFont(ofSize: 28, weight: .bold))
+                journalTextBlock(block, font: bodyUIFont(size: 28, weight: .bold))
                     .padding(.top, 2)
                     .padding(.leading, indentPadding(for: block))
             }
         case .heading2:
             styledContent(block) {
-                journalTextBlock(block, font: .systemFont(ofSize: 22, weight: .bold))
+                journalTextBlock(block, font: bodyUIFont(size: 22, weight: .bold))
                     .padding(.leading, indentPadding(for: block))
             }
         case .heading3:
             styledContent(block) {
-                journalTextBlock(block, font: .systemFont(ofSize: 18, weight: .semibold))
+                journalTextBlock(block, font: bodyUIFont(size: 18, weight: .semibold))
                     .padding(.leading, indentPadding(for: block))
             }
         case .heading4:
             styledContent(block) {
-                journalTextBlock(block, font: .systemFont(ofSize: 16, weight: .semibold))
+                journalTextBlock(block, font: bodyUIFont(size: 16, weight: .semibold))
                     .padding(.leading, indentPadding(for: block))
             }
         case .heading5:
             styledContent(block) {
-                journalTextBlock(block, font: .systemFont(ofSize: 14, weight: .semibold))
+                journalTextBlock(block, font: bodyUIFont(size: 14, weight: .semibold))
                     .padding(.leading, indentPadding(for: block))
             }
         case .heading6:
             styledContent(block) {
-                journalTextBlock(block, font: .systemFont(ofSize: 13, weight: .medium))
+                journalTextBlock(block, font: bodyUIFont(size: 13, weight: .medium))
                     .padding(.leading, indentPadding(for: block))
             }
         case .blockquote:
             HStack(alignment: .top, spacing: 10) {
                 RoundedRectangle(cornerRadius: 2).fill(blockGradient(block.blockquoteColorHex)).frame(width: 4)
-                journalTextBlock(block, font: .systemFont(ofSize: 16, weight: .regular))
+                journalTextBlock(block, font: bodyUIFont(size: 16, weight: .regular))
             }
             .padding(12)
             .background(Color.white.opacity(0.12))
@@ -160,7 +166,7 @@ struct JournalBlockDisplayView: View {
             HStack(alignment: .center, spacing: 12) {
                 calloutIconView(for: activeCalloutIconItem(for: block))
                     .frame(width: 20, height: 20, alignment: Alignment.center)
-                journalTextBlock(block, font: .systemFont(ofSize: 15, weight: .regular))
+                journalTextBlock(block, font: bodyUIFont(size: 15, weight: .regular))
             }
             .padding(12)
             .background(Color.white.opacity(0.14))
@@ -177,24 +183,24 @@ struct JournalBlockDisplayView: View {
                         .padding(.top, prefixWrapperAlignmentPadding(for: block))
 
                     styledContent(block) {
-                        journalTextBlock(block, font: .systemFont(ofSize: 16, weight: .regular))
+                        journalTextBlock(block, font: bodyUIFont(size: 16, weight: .regular))
                     }
                 }
                 .padding(.leading, indentPadding(for: block))
             }
             .buttonStyle(.plain)
         case .toggleHeading1:
-            toggleHeadingBlock(block, font: .systemFont(ofSize: 28, weight: .bold))
+            toggleHeadingBlock(block, font: bodyUIFont(size: 28, weight: .bold))
         case .toggleHeading2:
-            toggleHeadingBlock(block, font: .systemFont(ofSize: 22, weight: .bold))
+            toggleHeadingBlock(block, font: bodyUIFont(size: 22, weight: .bold))
         case .toggleHeading3:
-            toggleHeadingBlock(block, font: .systemFont(ofSize: 18, weight: .semibold))
+            toggleHeadingBlock(block, font: bodyUIFont(size: 18, weight: .semibold))
         case .toggleHeading4:
-            toggleHeadingBlock(block, font: .systemFont(ofSize: 16, weight: .semibold))
+            toggleHeadingBlock(block, font: bodyUIFont(size: 16, weight: .semibold))
         case .toggleHeading5:
-            toggleHeadingBlock(block, font: .systemFont(ofSize: 14, weight: .semibold))
+            toggleHeadingBlock(block, font: bodyUIFont(size: 14, weight: .semibold))
         case .toggleHeading6:
-            toggleHeadingBlock(block, font: .systemFont(ofSize: 13, weight: .medium))
+            toggleHeadingBlock(block, font: bodyUIFont(size: 13, weight: .medium))
         case .bulletedList:
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: bulletSymbolName(for: block.indentLevel))
@@ -204,7 +210,7 @@ struct JournalBlockDisplayView: View {
                     .padding(.top, 6 + prefixWrapperAlignmentPadding(for: block))
 
                 styledContent(block) {
-                    journalTextBlock(block, font: .systemFont(ofSize: 16, weight: .regular))
+                    journalTextBlock(block, font: bodyUIFont(size: 16, weight: .regular))
                 }
             }
             .padding(.leading, indentPadding(for: block))
@@ -217,7 +223,7 @@ struct JournalBlockDisplayView: View {
                     .padding(.top, prefixWrapperAlignmentPadding(for: block))
 
                 styledContent(block) {
-                    journalTextBlock(block, font: .systemFont(ofSize: 16, weight: .regular))
+                    journalTextBlock(block, font: bodyUIFont(size: 16, weight: .regular))
                 }
             }
             .padding(.leading, indentPadding(for: block))
@@ -228,7 +234,7 @@ struct JournalBlockDisplayView: View {
                     .padding(.top, 4 + prefixWrapperAlignmentPadding(for: block))
 
                 styledContent(block) {
-                    journalTextBlock(block, font: .systemFont(ofSize: 16, weight: .regular))
+                    journalTextBlock(block, font: bodyUIFont(size: 16, weight: .regular))
                 }
             }
             .padding(.leading, indentPadding(for: block))

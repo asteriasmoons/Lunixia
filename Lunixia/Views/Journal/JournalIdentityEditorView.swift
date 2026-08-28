@@ -175,6 +175,38 @@ struct JournalIdentityEditorView: View {
             .padding(.top, 16)
             .padding(.bottom, 4)
 
+            // Body font picker — custom dropdown, matches the entry's text tint
+            JournalBodyFontPicker(
+                selectedPostScriptName: Binding(
+                    get: { entry.bodyFontName },
+                    set: { newValue in
+                        entry.bodyFontName = newValue
+                        entry.touch()
+                        try? modelContext.save()
+                    }
+                ),
+                tint: resolvedTitleColor
+            )
+            .padding(.horizontal, 20)
+            .padding(.top, 4)
+            .padding(.bottom, 4)
+
+            // Body font size stepper — minuswavy | current pt | addwavy
+            JournalBodyFontSizePicker(
+                sizeOffset: Binding(
+                    get: { entry.bodyFontSizeOffset },
+                    set: { newValue in
+                        entry.bodyFontSizeOffset = newValue
+                        entry.touch()
+                        try? modelContext.save()
+                    }
+                ),
+                tint: resolvedTitleColor
+            )
+            .padding(.horizontal, 20)
+            .padding(.top, 4)
+            .padding(.bottom, 4)
+
             // Cover image editor zone
             if let data = entry.coverImageData, let uiImage = UIImage(data: data) {
                 coverEditorView(uiImage)
