@@ -19,6 +19,8 @@ struct DailyIntentionView: View {
     @State private var isEditing: Bool = true
     @State private var lastSyncedText: String = ""
     @State private var dayChangeChecksEnabled: Bool = false
+    @State private var isGeneratingIntention: Bool = false
+    @State private var generationError: String?
     @FocusState private var isTextEditorFocused: Bool
 
     private let dayChangeTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
@@ -67,30 +69,58 @@ struct DailyIntentionView: View {
                 }
 
                 if isEditing {
-                    ZStack(alignment: .topLeading) {
-                        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            Text("Set an intention for today…")
+                    VStack(alignment: .leading, spacing: 8) {
+                        ZStack(alignment: .topLeading) {
+                            if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text("Type in context and get an intention or type your intention and hit save")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(LColors.textSecondary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                            }
+
+                            TextEditor(text: $text)
+                                .focused($isTextEditorFocused)
+                                .scrollContentBackground(.hidden)
                                 .font(.system(size: 14))
-                                .foregroundStyle(LColors.textSecondary)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
+                                .foregroundStyle(LColors.textPrimary)
+                                .frame(height: 48)
+                                .padding(6)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(LColors.glassSurface2)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                .strokeBorder(LColors.glassBorder, lineWidth: 1)
+                                        )
+                                )
                         }
 
-                        TextEditor(text: $text)
-                            .focused($isTextEditorFocused)
-                            .scrollContentBackground(.hidden)
-                            .font(.system(size: 14))
-                            .foregroundStyle(LColors.textPrimary)
-                            .frame(minHeight: 90)
-                            .padding(6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(LColors.glassSurface2)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .strokeBorder(LColors.glassBorder, lineWidth: 1)
-                                    )
-                            )
+                        Button {
+                            Task {
+                                await getGeneratedIntention()
+                            }
+                        } label: {
+                            Text(isGeneratingIntention ? "Getting..." : "Get Intention")
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 9)
+                                .background(
+                                    Capsule()
+                                        .fill(LColors.accentGradient)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isGeneratingIntention)
+                        .opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.55 : 1)
+
+                        if let generationError {
+                            Text(generationError)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.red.opacity(0.85))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
@@ -267,11 +297,31 @@ struct DailyIntentionView: View {
         }
     }
 
+    @MainActor
+    private func getGeneratedIntention() async {
+        let context = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !context.isEmpty, !isGeneratingIntention else { return }
+
+        isGeneratingIntention = true
+        generationError = nil
+        isTextEditorFocused = false
+
+        do {
+            let response = try await DailyIntentionAIService.shared.generateIntention(context: context)
+            text = response.intention
+        } catch {
+            generationError = error.localizedDescription
+        }
+
+        isGeneratingIntention = false
+    }
+
     private func clear() {
         do {
             try DailyIntentionWriter.clearTodayIntention(modelContext: modelContext)
             text = ""
             lastSyncedText = ""
+            generationError = nil
             isEditing = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isTextEditorFocused = true

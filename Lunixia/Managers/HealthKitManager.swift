@@ -218,14 +218,16 @@ final class HealthKitManager {
     }
 
     // MARK: - Sleep
-    // Previous noon → current noon to capture a full night within "today"
+    // Previous evening -> today noon/current time captures the overnight period
+    // without counting daytime naps in a card labeled "Last Night".
 
     private func fetchSleep(todayStart: Date, now: Date) async -> Double {
         guard let type = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { return 0 }
         let calendar = Calendar.current
-        let todayNoon = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: now) ?? now
-        let yesterdayNoon = calendar.date(byAdding: .day, value: -1, to: todayNoon) ?? now
-        let predicate = HKQuery.predicateForSamples(withStart: yesterdayNoon, end: now)
+        let todayNoon = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: todayStart) ?? now
+        let nightStart = calendar.date(byAdding: .hour, value: -6, to: todayStart) ?? todayStart
+        let nightEnd = min(now, todayNoon)
+        let predicate = HKQuery.predicateForSamples(withStart: nightStart, end: nightEnd)
         let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
 
         return await withCheckedContinuation { continuation in
@@ -244,13 +246,42 @@ final class HealthKitManager {
                     HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
                     HKCategoryValueSleepAnalysis.asleepREM.rawValue
                 ]
-                let total = samples
+                let intervals = samples
                     .filter { asleepValues.contains($0.value) }
-                    .reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) }
+                    .compactMap { sample -> DateInterval? in
+                        let start = max(sample.startDate, nightStart)
+                        let end = min(sample.endDate, nightEnd)
+                        guard end > start else { return nil }
+                        return DateInterval(start: start, end: end)
+                    }
+
+                let total = Self.mergedDuration(for: intervals)
                 continuation.resume(returning: total / 3600)
             }
             store.execute(query)
         }
+    }
+
+    private static func mergedDuration(for intervals: [DateInterval]) -> TimeInterval {
+        guard !intervals.isEmpty else { return 0 }
+
+        let sorted = intervals.sorted { $0.start < $1.start }
+        var currentStart = sorted[0].start
+        var currentEnd = sorted[0].end
+        var total: TimeInterval = 0
+
+        for interval in sorted.dropFirst() {
+            if interval.start <= currentEnd {
+                currentEnd = max(currentEnd, interval.end)
+            } else {
+                total += currentEnd.timeIntervalSince(currentStart)
+                currentStart = interval.start
+                currentEnd = interval.end
+            }
+        }
+
+        total += currentEnd.timeIntervalSince(currentStart)
+        return total
     }
 
     // MARK: - Exercise

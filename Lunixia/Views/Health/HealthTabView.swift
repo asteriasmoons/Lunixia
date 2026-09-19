@@ -300,6 +300,8 @@ private var shouldUseFullScreenSheets: Bool {
                 refreshMedicationAutomation()
                 ensureGoalsExist()
                 resetDisplayedHealthTotalsIfNeeded()
+                _ = await HealthKitWriteManager.shared.backfillVitals(entries: vitalsEntries)
+                _ = await HealthKitWriteManager.shared.backfillExercise(entries: exerciseEntries)
                 await refreshHealthKitTotals()
                 await HealthKitManager.shared.startStepUpdates {
                     Task { @MainActor in
@@ -861,7 +863,17 @@ private var shouldUseFullScreenSheets: Bool {
     private func handleExerciseSave(_ entry: ExerciseEntry) {
         modelContext.insert(entry)
         try? modelContext.save()
-        writeExerciseToHealthKit(entry)
+
+        let calendar = Calendar.current
+        let sameDayEntries = (exerciseEntries + [entry])
+            .reduce(into: [UUID: ExerciseEntry]()) { result, item in
+                result[item.id] = item
+            }
+            .values
+            .filter { calendar.isDate($0.timestamp, inSameDayAs: entry.timestamp) }
+
+        syncExerciseDayToHealthKit(Array(sameDayEntries))
+
         _ = try? LunixiaPointsManager.awardExerciseLog(
             in: modelContext,
             id: entry.id.uuidString,
@@ -1315,9 +1327,9 @@ private var shouldUseFullScreenSheets: Bool {
         }
     }
 
-    private func writeExerciseToHealthKit(_ entry: ExerciseEntry) {
+    private func syncExerciseDayToHealthKit(_ entries: [ExerciseEntry]) {
         Task {
-            await HealthKitWriteManager.shared.writeExercise(entry: entry)
+            _ = await HealthKitWriteManager.shared.syncExerciseDay(entries: entries)
         }
     }
 

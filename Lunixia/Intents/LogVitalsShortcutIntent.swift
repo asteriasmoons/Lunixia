@@ -93,6 +93,26 @@ struct LogVitalsShortcutIntent: AppIntent {
             try context.save()
         }
 
+        // Write these vitals into the Health app using the exact same method the
+        // in-app logger uses (HealthKitWriteManager.writeVitals, which requests
+        // write authorization internally). VitalsEntry is a SwiftData @Model and
+        // therefore non-Sendable, so it can't be returned out of the MainActor
+        // block above; writeVitals reads only the scalar fields and timestamp, so
+        // a value carrying the same inputs produces identical HealthKit samples.
+        let healthKitEntry = VitalsEntry(
+            bloodOxygen: finalBloodOxygen,
+            bpm: Double(finalBpm),
+            systolic: Double(finalSystolic),
+            diastolic: Double(finalDiastolic),
+            bodyTemp: finalBodyTemp,
+            weight: finalWeight,
+            timestamp: finalDate
+        )
+        await HealthKitWriteManager.shared.writeVitals(entry: healthKitEntry)
+
+        // Update the vitals widget snapshot, matching the in-app logger exactly.
+        HealthKitManager.shared.saveVitalsWidgetSnapshot(from: healthKitEntry)
+
         return .result(dialog: IntentDialog("Vitals logged."))
     }
 }

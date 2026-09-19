@@ -8,6 +8,16 @@ import AppIntents
 struct LunixiaShortcutsProvider: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
+            intent: LogMoodShortcutIntent(),
+            phrases: [
+                "Log my mood in \(.applicationName)",
+                "Add a mood to \(.applicationName)",
+                "Log how I'm feeling in \(.applicationName)"
+            ],
+            shortTitle: "Log Mood",
+            systemImageName: "face.smiling"
+        )
+        AppShortcut(
             intent: LogVitalsShortcutIntent(),
             phrases: [
                 "Log my vitals in \(.applicationName)",
@@ -35,6 +45,26 @@ struct LunixiaShortcutsProvider: AppShortcutsProvider {
             ],
             shortTitle: "Log Exercise",
             systemImageName: "figure.run"
+        )
+        AppShortcut(
+            intent: LogDailyIntentionShortcutIntent(),
+            phrases: [
+                "Set my daily intention in \(.applicationName)",
+                "Set today's intention in \(.applicationName)",
+                "Log my intention in \(.applicationName)"
+            ],
+            shortTitle: "Set Daily Intention",
+            systemImageName: "sparkles"
+        )
+        AppShortcut(
+            intent: AddJournalEntryShortcutIntent(),
+            phrases: [
+                "Add a journal entry in \(.applicationName)",
+                "Write in my journal in \(.applicationName)",
+                "Create a journal entry in \(.applicationName)"
+            ],
+            shortTitle: "Add Journal Entry",
+            systemImageName: "book.closed.fill"
         )
     }
 }

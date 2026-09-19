@@ -400,6 +400,8 @@ struct ToggleStickyNoteChecklistItemIntent: AppIntent {
     static var title: LocalizedStringResource = "Toggle Checklist Item"
     static var description = IntentDescription("Marks a sticky note checklist item complete or incomplete.")
     static var openAppWhenRun = false
+    // Widget button intent only — hide it from the Shortcuts app action list.
+    static var isDiscoverable: Bool = false
 
     @Parameter(title: "Note ID")
     var noteID: String

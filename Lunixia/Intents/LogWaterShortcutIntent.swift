@@ -58,6 +58,14 @@ struct LogWaterShortcutIntent: AppIntent {
             try context.save()
         }
 
+        // Write the water into the Health app and refresh the health widget, exactly
+        // as the in-app logger does: writeWaterToHealthKit -> HealthKitWriteManager
+        // .writeWater, then refreshHealthKitTotalsSoon, whose widget update is
+        // fetchAll()'s saveHealthWidgetSnapshot + WidgetCenter reload. (The in-app
+        // path's celebration/flash are view-only UI feedback and don't apply here.)
+        await HealthKitWriteManager.shared.writeWater(oz: amount)
+        await HealthKitManager.shared.fetchAll()
+
         return .result(dialog: IntentDialog("Logged \(Int(amount)) oz of water."))
     }
 }

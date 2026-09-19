@@ -171,6 +171,11 @@ private func healthWidgetCompactNumber(_ number: Int) -> String {
     return "\(number)"
 }
 
+private func healthWidgetWholeOunces(_ ounces: Double) -> Int {
+    guard ounces.isFinite else { return 0 }
+    return max(0, Int(ounces.rounded()))
+}
+
 // MARK: - Dotted Gradient Ring
 
 struct DottedProgressRing: View {
@@ -500,7 +505,7 @@ struct LunixiaHealthWaterSmallWidgetView: View {
                 icon: "wbottle"
             )
 
-            Text("\(Int(s.waterOz))/\(Int(s.waterGoalOz))")
+            Text("\(healthWidgetWholeOunces(s.waterOz))/\(healthWidgetWholeOunces(s.waterGoalOz))")
                 .font(.system(size: 14, weight: .black, design: .rounded))
                 .foregroundStyle(LColors.textPrimary)
                 .lineLimit(1)
@@ -551,7 +556,7 @@ struct LunixiaHealthMediumWidgetView: View {
             HStack(spacing: 0) {
                 HealthMetricRing(
                     icon: "bottle",
-                    value: "\(Int(s.waterOz))",
+                    value: "\(healthWidgetWholeOunces(s.waterOz))",
                     unit: "oz",
                     progress: healthWidgetProgress(s.waterOz, s.waterGoalOz),
                     dotCount: 44,
@@ -822,7 +827,7 @@ struct LunixiaHealthLargeWidgetView: View {
             HStack(spacing: 24) {
                 HealthMetricRing(
                     icon: "bottle",
-                    value: "\(Int(s.waterOz))",
+                    value: "\(healthWidgetWholeOunces(s.waterOz))",
                     unit: "oz",
                     progress: healthWidgetProgress(s.waterOz, s.waterGoalOz),
                     dotCount: 58,
@@ -847,8 +852,8 @@ struct LunixiaHealthLargeWidgetView: View {
                 HealthGoalRow(
                     icon: "bottle",
                     title: "Water Goal",
-                    current: "\(Int(s.waterOz)) oz",
-                    goal: "\(Int(s.waterGoalOz)) oz"
+                    current: "\(healthWidgetWholeOunces(s.waterOz)) oz",
+                    goal: "\(healthWidgetWholeOunces(s.waterGoalOz)) oz"
                 )
 
                 HealthGoalRow(
@@ -875,7 +880,7 @@ struct LunixiaHealthAccessoryRectWidgetView: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Label("\(Int(s.waterOz)) oz", systemImage: "drop.fill")
+                Label("\(healthWidgetWholeOunces(s.waterOz)) oz", systemImage: "drop.fill")
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                 ProgressView(value: healthWidgetProgress(s.waterOz, s.waterGoalOz))
                     .tint(.white)
