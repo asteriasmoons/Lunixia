@@ -593,6 +593,19 @@ private enum StickyNoteWidgetFontOption: String {
     case rounded
     case serif
     case beautifulRainbow
+    case cloudyCloud
+    case funnyHippo
+    case handwritten
+    case lovelyPuppy
+    case unicornMagic
+    case zodiacSimple
+    case zodiac
+    case fateOfLove
+    case looper
+    case marigoldFlowers
+    case quirkyLoving
+    case strawberryJunkies
+    case togetherForever
     case balistia
     case cenila
     case cheekySmileAlt
@@ -619,6 +632,32 @@ private enum StickyNoteWidgetFontOption: String {
             return nil
         case .beautifulRainbow:
             return "BeautifulRainbow"
+        case .cloudyCloud:
+            return "CloudyCloud"
+        case .funnyHippo:
+            return "FunnyHippo-Regular"
+        case .handwritten:
+            return "HandwrittenRegular"
+        case .lovelyPuppy:
+            return "LovelyPuppySans"
+        case .unicornMagic:
+            return "UnicornMagicRegular"
+        case .zodiacSimple:
+            return "ZodiacSimple"
+        case .zodiac:
+            return "ZodiacRegular"
+        case .fateOfLove:
+            return "FateOfLoveRegular"
+        case .looper:
+            return "LooperRegular"
+        case .marigoldFlowers:
+            return "MarigoldFlowers"
+        case .quirkyLoving:
+            return "QuirkyLoving"
+        case .strawberryJunkies:
+            return "StrawberryJunkies-Regular"
+        case .togetherForever:
+            return "TogetherForeverRegular"
         case .balistia:
             return "Balistia-Regular"
         case .cenila:
@@ -666,6 +705,32 @@ private enum StickyNoteWidgetFontOption: String {
             return nil
         case .beautifulRainbow:
             return "Beautiful Rainbow Font by Dani 7NTypes.otf"
+        case .cloudyCloud:
+            return "Cloudy Cloud.otf"
+        case .funnyHippo:
+            return "Funny Hippo.otf"
+        case .handwritten:
+            return "Handwritten.otf"
+        case .lovelyPuppy:
+            return "Lovely Puppy.otf"
+        case .unicornMagic:
+            return "Unicorn Magic.otf"
+        case .zodiacSimple:
+            return "Zodiac Simple.otf"
+        case .zodiac:
+            return "Zodiac.otf"
+        case .fateOfLove:
+            return "Fate of Love.otf"
+        case .looper:
+            return "Looper.otf"
+        case .marigoldFlowers:
+            return "Marigold Flowers.otf"
+        case .quirkyLoving:
+            return "Quirky Loving.otf"
+        case .strawberryJunkies:
+            return "Strawberry Junkies.otf"
+        case .togetherForever:
+            return "TogetherForever.otf"
         case .balistia:
             return "Balistia.otf"
         case .cenila:
@@ -765,6 +830,19 @@ private enum StickyNoteWidgetFontRegistrar {
 
         for option in [
             StickyNoteWidgetFontOption.beautifulRainbow,
+            .cloudyCloud,
+            .funnyHippo,
+            .handwritten,
+            .lovelyPuppy,
+            .unicornMagic,
+            .zodiacSimple,
+            .zodiac,
+            .fateOfLove,
+            .looper,
+            .marigoldFlowers,
+            .quirkyLoving,
+            .strawberryJunkies,
+            .togetherForever,
             .balistia,
             .cenila,
             .cheekySmileAlt,

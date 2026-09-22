@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct ExerciseLogSheet: View {
     @Environment(\.dismiss) private var dismiss

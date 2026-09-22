@@ -13,7 +13,6 @@ enum LunixiaTab: CaseIterable {
     case notes
     case spiritual
     case selfCarePoints
-    case premium
 
     static let primaryTabs: [LunixiaTab] = [
         .mood,
@@ -25,8 +24,7 @@ enum LunixiaTab: CaseIterable {
     static let overflowTabs: [LunixiaTab] = [
         .notes,
         .spiritual,
-        .selfCarePoints,
-        .premium
+        .selfCarePoints
     ]
 
     var icon: String {
@@ -51,9 +49,6 @@ enum LunixiaTab: CaseIterable {
 
         case .selfCarePoints:
             return "heartwavy"
-
-        case .premium:
-            return "lockwavy"
         }
     }
 
@@ -79,9 +74,6 @@ enum LunixiaTab: CaseIterable {
 
         case .selfCarePoints:
             return "Self-Care Points"
-
-        case .premium:
-            return "Premium"
         }
     }
 }
@@ -130,9 +122,6 @@ struct MainTabView: View {
 
         case .selfCarePoints:
             SelfCarePointsView()
-
-        case .premium:
-            PremiumView()
         }
     }
 }
