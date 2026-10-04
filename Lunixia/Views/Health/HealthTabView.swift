@@ -87,6 +87,23 @@ struct HealthTabView: View {
         return exerciseEntries.filter { $0.timestamp >= today }
     }
 
+    private var todayExerciseMinutes: Int {
+        todayExercises.reduce(0) { $0 + max(0, $1.durationMinutes) }
+    }
+
+    private var lastSevenDaysExerciseMinutes: Int {
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfToday = calendar.startOfDay(for: now)
+        guard let cutoff = calendar.date(byAdding: .day, value: -6, to: startOfToday) else {
+            return todayExerciseMinutes
+        }
+
+        return exerciseEntries
+            .filter { $0.timestamp >= cutoff && $0.timestamp <= now }
+            .reduce(0) { $0 + max(0, $1.durationMinutes) }
+    }
+
     private var todayNaps: [NapEntry] {
         let today = Calendar.current.startOfDay(for: Date())
         return napEntries.filter { $0.startDate >= today }
@@ -578,6 +595,11 @@ private var shouldUseFullScreenSheets: Bool {
                         }
                         .buttonStyle(.plain)
                     }
+                }
+
+                HStack(spacing: 10) {
+                    exerciseTimeTile(label: "Today", minutes: todayExerciseMinutes)
+                    exerciseTimeTile(label: "Last 7 Days", minutes: lastSevenDaysExerciseMinutes)
                 }
 
                 if todayExercises.isEmpty {
@@ -1086,6 +1108,38 @@ private var shouldUseFullScreenSheets: Bool {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(LColors.glassSurface)
         )
+    }
+
+    @ViewBuilder
+    private func exerciseTimeTile(label: String, minutes: Int) -> some View {
+        VStack(spacing: 4) {
+            Text(exerciseDurationDisplay(minutes))
+                .font(.system(size: 20, weight: .black, design: .rounded))
+                .foregroundStyle(.white)
+            Text(label)
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundStyle(LColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.white.opacity(0.08))
+        )
+    }
+
+    private func exerciseDurationDisplay(_ minutes: Int) -> String {
+        let safeMinutes = max(0, minutes)
+        let hours = safeMinutes / 60
+        let remainingMinutes = safeMinutes % 60
+
+        if hours > 0 && remainingMinutes > 0 {
+            return "\(hours)h \(remainingMinutes)m"
+        }
+        if hours > 0 {
+            return "\(hours)h"
+        }
+        return "\(remainingMinutes)m"
     }
 
     @ViewBuilder

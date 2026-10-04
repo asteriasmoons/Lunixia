@@ -29,8 +29,8 @@ final class LunixiaStoreManager: ObservableObject {
     @Published private(set) var products: [Product] = []
     @Published private(set) var purchasedProductIDs: Set<String> = []
     @Published private(set) var activePremiumProductID: String? = nil
-    @Published private(set) var isPremium: Bool = false
-    @Published private(set) var adminPremiumOverrideEnabled: Bool = false
+    @Published private(set) var isPremium: Bool = true
+    @Published private(set) var adminPremiumOverrideEnabled: Bool = true
     @Published private(set) var isLoadingProducts: Bool = false
     @Published private(set) var isPurchasing: Bool = false
     @Published private(set) var lastErrorMessage: String? = nil
@@ -40,6 +40,9 @@ final class LunixiaStoreManager: ObservableObject {
     // MARK: - Init
 
     init() {
+        // Premium is disabled. Keep the StoreKit startup code available for a
+        // future re-enable without allowing it to run in the current app.
+        #if false
         transactionUpdatesTask = listenForTransactions()
 
         adminPremiumOverrideEnabled = UserDefaults.standard.bool(forKey: "lunixia.adminPremiumOverrideEnabled")
@@ -47,6 +50,7 @@ final class LunixiaStoreManager: ObservableObject {
         Task {
             await refresh()
         }
+        #endif
     }
 
     deinit {
@@ -56,11 +60,14 @@ final class LunixiaStoreManager: ObservableObject {
     // MARK: - Public API
 
     func refresh() async {
+        #if false
         await loadProducts()
         await updatePurchasedProducts()
+        #endif
     }
 
     func loadProducts() async {
+        #if false
         isLoadingProducts = true
         lastErrorMessage = nil
         defer { isLoadingProducts = false }
@@ -75,10 +82,12 @@ final class LunixiaStoreManager: ObservableObject {
             lastErrorMessage = "Unable to load premium options."
             print("[LunixiaStoreManager] Failed to load products: \(error)")
         }
+        #endif
     }
 
     @discardableResult
     func purchase(_ product: Product) async -> Bool {
+        #if false
         isPurchasing = true
         lastErrorMessage = nil
         defer { isPurchasing = false }
@@ -109,9 +118,13 @@ final class LunixiaStoreManager: ObservableObject {
             print("[LunixiaStoreManager] Purchase failed: \(error)")
             return false
         }
+        #else
+        return false
+        #endif
     }
 
     func restorePurchases() async {
+        #if false
         lastErrorMessage = nil
 
         do {
@@ -121,9 +134,11 @@ final class LunixiaStoreManager: ObservableObject {
             lastErrorMessage = "Unable to restore purchases."
             print("[LunixiaStoreManager] Restore failed: \(error)")
         }
+        #endif
     }
 
     func updatePurchasedProducts() async {
+        #if false
         var activeProductIDs = Set<String>()
 
         for await result in Transaction.currentEntitlements {
@@ -153,6 +168,9 @@ final class LunixiaStoreManager: ObservableObject {
             subscriptionSortOrder($0) < subscriptionSortOrder($1)
         }.first
         isPremium = adminPremiumOverrideEnabled || !activeProductIDs.isEmpty
+        #else
+        isPremium = true
+        #endif
     }
 
     func owns(_ productID: String) -> Bool {
@@ -177,9 +195,11 @@ final class LunixiaStoreManager: ObservableObject {
     }
 
     func toggleAdminPremiumOverride() {
+        #if false
         adminPremiumOverrideEnabled.toggle()
         UserDefaults.standard.set(adminPremiumOverrideEnabled, forKey: "lunixia.adminPremiumOverrideEnabled")
         isPremium = adminPremiumOverrideEnabled || !purchasedProductIDs.isEmpty
+        #endif
     }
 
     // MARK: - Transaction Listener

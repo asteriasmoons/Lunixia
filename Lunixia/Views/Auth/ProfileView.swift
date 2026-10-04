@@ -9,17 +9,14 @@ import PhotosUI
 
 struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var storeManager: LunixiaStoreManager
     @Query private var users: [AuthUser]
     @Query private var profiles: [LunixiaPointsProfile]
-    @Query private var tarotRecords: [DailyTarotRecord]
-    @Query private var tarotPullRecords: [TarotPullRecord]
-    @Query private var lenormandRecords: [DailyLenormandRecord]
-    @Query private var lenormandPullRecords: [LenormandPullRecord]
 
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @EnvironmentObject private var appState: AppState
     @State private var pickerItem: PhotosPickerItem? = nil
     @State private var profileImage: UIImage? = nil
-    @State private var showSpiritualEraseConfirmation = false
+    @State private var showingReportCenter = false
 
     private var user: AuthUser? { users.first }
     private var currentPoints: Int { profiles.first?.currentPoints ?? 0 }
@@ -125,69 +122,42 @@ struct ProfileView: View {
                         }
                         .padding(.horizontal, 16)
 
-                        #if DEBUG
-                        if isSpiritualResetAdmin {
                         Button {
-                            eraseTodaysSpiritualRecords()
-                            showSpiritualEraseConfirmation = true
+                            showingReportCenter = true
                         } label: {
                             GlassCard(padding: 18) {
                                 HStack(spacing: 10) {
-                                    Image(systemName: "trash")
-                                        .foregroundStyle(LGradients.header)
+
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text("Erase Today’s Tarot + Lenormand")
+                                        Text("Report a Problem")
                                             .font(.system(size: 15, weight: .bold, design: .rounded))
                                             .foregroundStyle(LColors.textPrimary)
-                                        Text("Developer-only reset button")
+
+                                        Text("Send a bug report, beta feedback, or a feature request")
                                             .font(.system(size: 12, weight: .medium, design: .rounded))
                                             .foregroundStyle(LColors.textSecondary)
+                                            .fixedSize(horizontal: false, vertical: true)
                                     }
-                                    Spacer()
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 16)
-                        }
 
-                        Button {
-                            storeManager.toggleAdminPremiumOverride()
-                        } label: {
-                            GlassCard(padding: 18) {
-                                HStack(spacing: 10) {
-                                    Image("heartlock")
+                                    Spacer()
+
+                                    Image("chatstar")
+                                        .renderingMode(.template)
                                         .resizable()
                                         .scaledToFit()
                                         .frame(width: 22, height: 22)
-
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text("Admin Premium Override")
-                                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                                            .foregroundStyle(LColors.textPrimary)
-
-                                        Text(storeManager.adminPremiumOverrideEnabled ? "Premium override is ON" : "Premium override is OFF")
-                                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                                            .foregroundStyle(LColors.textSecondary)
-                                    }
-
-                                    Spacer()
-
-                                    Text(storeManager.adminPremiumOverrideEnabled ? "ON" : "OFF")
-                                        .font(.system(size: 11, weight: .black, design: .rounded))
-                                        .foregroundStyle(.white)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 6)
-                                        .background(
-                                            Capsule()
-                                                .fill(storeManager.adminPremiumOverrideEnabled ? LColors.accentGradient : LinearGradient(colors: [LColors.textSecondary.opacity(0.35)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                        )
+                                        .foregroundStyle(LGradients.header)
+                                    Image("chevright")
+                                        .renderingMode(.template)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 22, height: 22)
+                                        .foregroundStyle(LColors.textSecondary)
                                 }
                             }
                         }
                         .buttonStyle(.plain)
                         .padding(.horizontal, 16)
-                        #endif
 
                         Spacer(minLength: 120)
                     }
@@ -196,43 +166,10 @@ struct ProfileView: View {
             }
         }
         .onAppear { loadSavedPhoto() }
-        .alert("Spiritual Data Erased", isPresented: $showSpiritualEraseConfirmation) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Today’s Tarot and Lenormand records have been removed.")
+        .lunixiaReportAdaptivePresentation(isPresented: $showingReportCenter, useFullScreenCover: horizontalSizeClass == .regular) {
+            LunixiaReportCenterView()
+                .environmentObject(appState)
         }
-    }
-
-    private let debugAppleUserID = "001664.f2fefbb84f024544b98e865fa6c6b49e.1524"
-
-    private var isSpiritualResetAdmin: Bool {
-        user?.appleUserId == debugAppleUserID
-    }
-
-    private func eraseTodaysSpiritualRecords() {
-        guard isSpiritualResetAdmin else { return }
-
-        let calendar = Calendar.current
-        let todayStart = calendar.startOfDay(for: Date())
-        let tomorrowStart = calendar.date(byAdding: .day, value: 1, to: todayStart)!
-
-        for record in tarotRecords where record.createdAt >= todayStart && record.createdAt < tomorrowStart {
-            modelContext.delete(record)
-        }
-
-        for record in lenormandRecords where record.createdAt >= todayStart && record.createdAt < tomorrowStart {
-            modelContext.delete(record)
-        }
-
-        for record in tarotPullRecords where record.pulledAt >= todayStart && record.pulledAt < tomorrowStart {
-            modelContext.delete(record)
-        }
-
-        for record in lenormandPullRecords where record.pulledAt >= todayStart && record.pulledAt < tomorrowStart {
-            modelContext.delete(record)
-        }
-
-        try? modelContext.save()
     }
 
     // MARK: - Photo handling

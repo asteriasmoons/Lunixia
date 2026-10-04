@@ -232,10 +232,15 @@ enum LunixiaPointsManager {
     private static var resetTimer: Timer?
 
     @MainActor
-    static func scheduleWeeklyReset(modelContainer: ModelContainer) {
+    static func scheduleWeeklyReset(
+        modelContainer: ModelContainer,
+        performImmediately: Bool = true
+    ) {
         resetTimer?.invalidate()
 
-        performDueWeeklyResetIfNeeded(modelContainer: modelContainer)
+        if performImmediately {
+            performDueWeeklyResetIfNeeded(modelContainer: modelContainer)
+        }
 
         let now = Date()
         let nextResetDate = nextMondayMidnight(after: now)
@@ -243,8 +248,10 @@ enum LunixiaPointsManager {
 
         resetTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { _ in
             Task { @MainActor in
-                performDueWeeklyResetIfNeeded(modelContainer: modelContainer, now: Date())
-                scheduleWeeklyReset(modelContainer: modelContainer)
+                LunixiaSyncIntegrityManager.shared.runWeeklyResetIfSafe(
+                    container: modelContainer
+                )
+                scheduleWeeklyReset(modelContainer: modelContainer, performImmediately: false)
             }
         }
 
@@ -396,6 +403,155 @@ enum LunixiaPointsManager {
         )
 
         return ((try? modelContext.fetch(descriptor)) ?? []).isEmpty == false
+    }
+
+    // MARK: - CloudKit reconciliation
+
+    /// SwiftData/CloudKit does not enforce unique constraints. Reconcile the
+    /// app's logical identifiers after imports so concurrent device writes do
+    /// not remain as duplicate awards, profiles, or weekly reset rows.
+    @MainActor
+    static func reconcileSyncedData(in modelContext: ModelContext) {
+        do {
+            let userId = try resolveUserId(in: modelContext)
+            let entries = try modelContext.fetch(
+                FetchDescriptor<LunixiaPointEntry>(
+                    predicate: #Predicate { $0.userId == userId },
+                    sortBy: [SortDescriptor(\.createdAt, order: .forward)]
+                )
+            )
+            let uniqueEntries = reconcilePointEntries(entries, in: modelContext)
+
+            let logs = try modelContext.fetch(
+                FetchDescriptor<LunixiaPointsResetLog>(
+                    predicate: #Predicate { $0.userId == userId },
+                    sortBy: [SortDescriptor(\.createdAt, order: .forward)]
+                )
+            )
+            reconcileResetLogs(logs, in: modelContext)
+
+            let profiles = try modelContext.fetch(
+                FetchDescriptor<LunixiaPointsProfile>(
+                    predicate: #Predicate { $0.userId == userId },
+                    sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+                )
+            )
+            let profile = reconcileProfiles(
+                profiles,
+                uniqueEntries: uniqueEntries,
+                userId: userId,
+                in: modelContext
+            )
+
+            if modelContext.hasChanges {
+                try modelContext.save()
+            }
+
+            if let profile {
+                savePointsWidgetSnapshot(from: profile, in: modelContext)
+            }
+        } catch {
+            print("[LunixiaPointsManager] Sync reconciliation failed: \(error)")
+        }
+    }
+
+    private static func reconcilePointEntries(
+        _ entries: [LunixiaPointEntry],
+        in modelContext: ModelContext
+    ) -> [LunixiaPointEntry] {
+        var keptBySourceKey: [String: LunixiaPointEntry] = [:]
+        var uniqueEntries: [LunixiaPointEntry] = []
+
+        for entry in entries {
+            guard !entry.sourceKey.isEmpty else {
+                uniqueEntries.append(entry)
+                continue
+            }
+
+            if let kept = keptBySourceKey[entry.sourceKey] {
+                if entry.points > kept.points {
+                    modelContext.delete(kept)
+                    keptBySourceKey[entry.sourceKey] = entry
+                    uniqueEntries.removeAll { $0 === kept }
+                    uniqueEntries.append(entry)
+                } else {
+                    modelContext.delete(entry)
+                }
+            } else {
+                keptBySourceKey[entry.sourceKey] = entry
+                uniqueEntries.append(entry)
+            }
+        }
+
+        return uniqueEntries
+    }
+
+    private static func reconcileResetLogs(
+        _ logs: [LunixiaPointsResetLog],
+        in modelContext: ModelContext
+    ) {
+        let automaticLogs = logs.filter { !$0.weekStartDayKey.hasPrefix("manual") }
+        let groupedLogs = Dictionary(grouping: automaticLogs, by: \.weekStartDayKey)
+
+        for (_, duplicates) in groupedLogs where duplicates.count > 1 {
+            guard let winner = duplicates.max(by: { lhs, rhs in
+                if lhs.pointsBeforeReset != rhs.pointsBeforeReset {
+                    return lhs.pointsBeforeReset < rhs.pointsBeforeReset
+                }
+                return lhs.createdAt > rhs.createdAt
+            }) else { continue }
+
+            for duplicate in duplicates where duplicate !== winner {
+                modelContext.delete(duplicate)
+            }
+        }
+    }
+
+    private static func reconcileProfiles(
+        _ profiles: [LunixiaPointsProfile],
+        uniqueEntries: [LunixiaPointEntry],
+        userId: String,
+        in modelContext: ModelContext
+    ) -> LunixiaPointsProfile? {
+        guard let winner = profiles.max(by: { lhs, rhs in
+            if lhs.lifetimePoints != rhs.lifetimePoints {
+                return lhs.lifetimePoints < rhs.lifetimePoints
+            }
+            return lhs.updatedAt < rhs.updatedAt
+        }) else {
+            return nil
+        }
+
+        let currentWeekKey = weekStartDayKey()
+        let syncedLifetimePoints = uniqueEntries.reduce(0) { $0 + max(0, $1.points) }
+        let syncedCurrentPoints = uniqueEntries
+            .filter { weekStartDayKey(from: $0.createdAt) == currentWeekKey }
+            .reduce(0) { $0 + max(0, $1.points) }
+        let currentWeekProfiles = profiles
+            .filter { $0.currentWeekStartDayKey == currentWeekKey }
+        let storedCurrentPoints = currentWeekProfiles.isEmpty
+            ? (profiles.map(\.currentPoints).max() ?? 0)
+            : (currentWeekProfiles.map(\.currentPoints).max() ?? 0)
+
+        winner.lifetimePoints = max(
+            syncedLifetimePoints,
+            profiles.map(\.lifetimePoints).max() ?? 0
+        )
+        winner.currentPoints = max(syncedCurrentPoints, storedCurrentPoints)
+        winner.spentPoints = profiles.map(\.spentPoints).max() ?? winner.spentPoints
+        winner.level = level(for: winner.currentPoints)
+        winner.lastEarnedAt = profiles.compactMap(\.lastEarnedAt).max()
+        winner.lastWeeklyResetAt = profiles.compactMap(\.lastWeeklyResetAt).max()
+        if !currentWeekProfiles.isEmpty {
+            winner.currentWeekStartDayKey = currentWeekKey
+        }
+        winner.updatedAt = Date()
+
+        for duplicate in profiles where duplicate !== winner {
+            modelContext.delete(duplicate)
+        }
+
+        return winner
     }
 
     // MARK: - One-time patch for faulty mid-week reset (Jul 23 2026)

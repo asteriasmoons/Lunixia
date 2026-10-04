@@ -115,7 +115,8 @@ struct LogMoodShortcutIntent: AppIntent {
             )
 
             let allEntries = try context.fetch(FetchDescriptor<MoodEntry>())
-            LunixiaMoodWidgetWriter.write(allEntries: allEntries)
+            let moodStreakConfig = StreakConfiguration.fetchOrCreate(.mood, in: context)
+            LunixiaMoodWidgetWriter.write(allEntries: allEntries, streakConfig: moodStreakConfig)
         }
 
         let moodList = resolvedEmotions.map(\.name).joined(separator: ", ")

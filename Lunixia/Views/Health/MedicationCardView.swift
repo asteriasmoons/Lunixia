@@ -2038,8 +2038,17 @@ struct MedInventorySheet: View {
     let medication: LunixiaMedication
     let onAction: (InventoryAction) -> Void
     @Environment(\.dismiss) private var dismiss
-    @State private var increaseAmt = 1
-    @State private var decreaseAmt = 1
+    @State private var adjustedAmount: Int
+    @State private var didCommitAdjustment = false
+
+    init(
+        medication: LunixiaMedication,
+        onAction: @escaping (InventoryAction) -> Void
+    ) {
+        self.medication = medication
+        self.onAction = onAction
+        _adjustedAmount = State(initialValue: medication.currentAmount)
+    }
 
     var body: some View {
         ZStack {
@@ -2052,7 +2061,7 @@ struct MedInventorySheet: View {
                             .font(.system(size: 20, weight: .black, design: .rounded))
                             .foregroundStyle(LGradients.header)
                         Spacer()
-                        Button { dismiss() } label: {
+                        Button { commitAndDismiss() } label: {
                             Image("xmarkwavy")
                                 .renderingMode(.template).resizable().scaledToFit()
                                 .frame(width: 22, height: 22)
@@ -2070,27 +2079,29 @@ struct MedInventorySheet: View {
                     VStack(alignment: .leading, spacing: 10) {
                         sectionKicker("quick actions")
                         HStack(spacing: 10) {
-                            quickBtn("-1")                       { onAction(.adjust(-1)) }
-                            quickBtn("+1")                       { onAction(.adjust(1)) }
-                            quickBtn("Set Full", gradient: true) { onAction(.setFull) }
+                            quickBtn("-1")                       { adjustedAmount = max(0, adjustedAmount - 1) }
+                            quickBtn("+1")                       { adjustedAmount += 1 }
+                            quickBtn("Set Full", gradient: true) { adjustedAmount = max(0, medication.supplyAmount) }
                         }
                     }
 
                     GlassCard(padding: 16) {
                         VStack(alignment: .leading, spacing: 14) {
                             sectionKicker("step adjustments")
-                            stepRow(label: "Increase by", value: $increaseAmt, sign: "+", gradient: true)  { onAction(.adjust(increaseAmt)) }
-                            stepRow(label: "Decrease by", value: $decreaseAmt, sign: "-", gradient: false) { onAction(.adjust(-decreaseAmt)) }
+                            inventoryAdjustmentControl
                         }
                     }
 
                     Spacer(minLength: 20)
-                    medDoneButton { dismiss() }
+                    medDoneButton { commitAndDismiss() }
                     Spacer(minLength: 32)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
             }
+        }
+        .onDisappear {
+            commitPendingAdjustment()
         }
     }
 
@@ -2115,41 +2126,109 @@ struct MedInventorySheet: View {
         .buttonStyle(.plain)
     }
 
-    @ViewBuilder private func stepRow(label: String, value: Binding<Int>, sign: String, gradient: Bool, onApply: @escaping () -> Void) -> some View {
-        HStack(spacing: 10) {
-            Text(label).font(.system(size: 13, weight: .semibold, design: .rounded)).foregroundStyle(LColors.textPrimary).frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: 5) {
-                Button { if value.wrappedValue > 1 { value.wrappedValue -= 1 } } label: {
-                    Image("chevdown").renderingMode(.template).resizable().scaledToFit()
-                        .frame(width: 12, height: 12).foregroundStyle(LColors.textPrimary)
-                        .frame(width: 26, height: 26)
-                        .background(LColors.glassSurface, in: RoundedRectangle(cornerRadius: 8))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(LColors.glassBorder, lineWidth: 0.75))
-                }.buttonStyle(.plain)
-                Text("\(sign)\(value.wrappedValue)").font(.system(size: 13, weight: .black, design: .rounded)).foregroundStyle(LColors.textPrimary).frame(minWidth: 26, alignment: .center)
-                Button { if value.wrappedValue < 100 { value.wrappedValue += 1 } } label: {
-                    Image("chevup").renderingMode(.template).resizable().scaledToFit()
-                        .frame(width: 12, height: 12)
-                        .foregroundStyle(gradient ? Color.black.opacity(0.8) : LColors.textPrimary)
-                        .frame(width: 26, height: 26)
-                        .background(gradient ? AnyShapeStyle(LGradients.blue) : AnyShapeStyle(LColors.glassSurface), in: RoundedRectangle(cornerRadius: 8))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(LColors.glassBorder, lineWidth: 0.75))
-                }.buttonStyle(.plain)
-                Button(action: onApply) {
-                    HStack(spacing: 4) {
-                        Image("checkwavy").renderingMode(.template).resizable().scaledToFit().frame(width: 11, height: 11)
-                        Text("Apply").font(.system(size: 12, weight: .bold, design: .rounded))
-                    }
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(1)
-                    .frame(minWidth: 72)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(LGradients.blue, in: Capsule())
-                }.buttonStyle(.plain)
+    private var inventoryAdjustmentControl: some View {
+        HStack(spacing: 22) {
+            InventoryRepeatingAdjustmentButton(
+                assetName: "addwavy",
+                accessibilityLabel: "Increase inventory"
+            ) {
+                adjustedAmount += 1
+            }
+
+            Text("\(adjustedAmount)")
+                .font(.system(size: 26, weight: .black, design: .rounded))
+                .foregroundStyle(LGradients.header)
+                .contentTransition(.numericText())
+                .frame(minWidth: 72)
+
+            InventoryRepeatingAdjustmentButton(
+                assetName: "minuswavy",
+                accessibilityLabel: "Decrease inventory",
+                isEnabled: adjustedAmount > 0
+            ) {
+                guard adjustedAmount > 0 else { return }
+                adjustedAmount -= 1
             }
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+
+    private func commitAndDismiss() {
+        commitPendingAdjustment()
+        dismiss()
+    }
+
+    private func commitPendingAdjustment() {
+        guard !didCommitAdjustment else { return }
+        didCommitAdjustment = true
+
+        let delta = adjustedAmount - medication.currentAmount
+        guard delta != 0 else { return }
+        onAction(.adjust(delta))
+    }
+}
+
+private struct InventoryRepeatingAdjustmentButton: View {
+    let assetName: String
+    let accessibilityLabel: String
+    var isEnabled: Bool = true
+    let action: () -> Void
+
+    @State private var isPressed = false
+    @State private var repeatTask: Task<Void, Never>?
+
+    var body: some View {
+        Image(assetName)
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 28, height: 28)
+            .foregroundStyle(LGradients.header)
+            .frame(width: 54, height: 54)
+            .scaleEffect(isPressed ? 0.92 : 1)
+            .opacity(isEnabled ? 1 : 0.35)
+            .contentShape(Circle())
+            .animation(.easeOut(duration: 0.12), value: isPressed)
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        beginPressIfNeeded()
+                    }
+                    .onEnded { _ in
+                        endPress()
+                    }
+            )
+            .accessibilityLabel(accessibilityLabel)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction {
+                guard isEnabled else { return }
+                action()
+            }
+            .onDisappear {
+                endPress()
+            }
+    }
+
+    private func beginPressIfNeeded() {
+        guard isEnabled, !isPressed else { return }
+        isPressed = true
+        action()
+
+        repeatTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+
+            while !Task.isCancelled {
+                action()
+                try? await Task.sleep(nanoseconds: 110_000_000)
+            }
+        }
+    }
+
+    private func endPress() {
+        isPressed = false
+        repeatTask?.cancel()
+        repeatTask = nil
     }
 }
 

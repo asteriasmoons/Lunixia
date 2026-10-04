@@ -45,6 +45,8 @@ struct JournalTabView: View {
     }
 
     @Query private var journalStatsRecords: [JournalStats]
+    @Query private var streakConfigs: [StreakConfiguration]
+    @State private var showStreakSettings = false
     
     @State private var editingBook: JournalBook? = nil
     
@@ -104,7 +106,10 @@ struct JournalTabView: View {
                         JournalStreakCard(
                             currentStreak: currentJournalStreak,
                             bestStreak: bestJournalStreak,
-                            journaledToday: journaledToday
+                            journaledToday: journaledToday,
+                            streakType: journalStreakConfig.type,
+                            goalSummary: journalStreakConfig.displaySummary,
+                            onSettings: { showStreakSettings = true }
                         )
                         .padding(.horizontal, LSpacing.pageHorizontal)
                         .padding(.bottom, 16)
@@ -152,6 +157,7 @@ struct JournalTabView: View {
             .onAppear {
                 migrateEntriesIntoDefaultBookIfNeeded()
                 migrateBookUUIDsIfNeeded()
+                StreakConfiguration.fetchOrCreate(.journal, in: modelContext)
                 loadMindfulMinutesIfNeeded()
                 scheduleMindfulMinutesMidnightRefresh()
                 updateBestStreakIfNeeded()
@@ -168,6 +174,28 @@ struct JournalTabView: View {
                 mindfulMinutesMidnightRefreshTask = nil
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showBookEditor)
+            .sheet(isPresented: Binding(
+                get: { !shouldUseFullScreenSheets && showStreakSettings },
+                set: { showStreakSettings = $0 }
+            )) {
+                StreakSettingsSheet(
+                    title: "Journal Streak",
+                    config: StreakConfiguration.fetchOrCreate(.journal, in: modelContext),
+                    onSave: { updateBestStreakIfNeeded() }
+                )
+                .preferredColorScheme(.dark)
+            }
+            .fullScreenCover(isPresented: Binding(
+                get: { shouldUseFullScreenSheets && showStreakSettings },
+                set: { showStreakSettings = $0 }
+            )) {
+                StreakSettingsSheet(
+                    title: "Journal Streak",
+                    config: StreakConfiguration.fetchOrCreate(.journal, in: modelContext),
+                    onSave: { updateBestStreakIfNeeded() }
+                )
+                .preferredColorScheme(.dark)
+            }
             // Prevent the NavigationStack default backgrounds from covering the custom background
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbarBackground(.hidden, for: .tabBar)
@@ -298,6 +326,19 @@ struct JournalTabView: View {
     private var streakCalendar: Calendar {
         Calendar.autoupdatingCurrent
     }
+
+    private var journalStreakConfig: StreakConfiguration {
+        streakConfigs.first(where: { $0.featureRawValue == StreakFeature.journal.rawValue })
+            ?? StreakConfiguration(feature: .journal)
+    }
+
+#if canImport(UIKit)
+    private var shouldUseFullScreenSheets: Bool {
+        UIDevice.current.userInterfaceIdiom == .pad
+    }
+#else
+    private var shouldUseFullScreenSheets: Bool { false }
+#endif
     
     private var journaledDayStarts: Set<Date> {
         Set(allEntries.map { streakCalendar.startOfDay(for: $0.createdAt) })
@@ -308,37 +349,30 @@ struct JournalTabView: View {
     }
     
     private var currentJournalStreak: Int {
-        let todayStart = streakCalendar.startOfDay(for: Date())
-        let startDay: Date
-        
-        if journaledDayStarts.contains(todayStart) {
-            startDay = todayStart
-        } else if let yesterday = streakCalendar.date(byAdding: .day, value: -1, to: todayStart),
-                  journaledDayStarts.contains(yesterday) {
-            startDay = yesterday
-        } else {
-            return 0
-        }
-        
-        var streak = 0
-        var cursor = startDay
-        
-        while journaledDayStarts.contains(cursor) {
-            streak += 1
-            guard let previous = streakCalendar.date(byAdding: .day, value: -1, to: cursor) else { break }
-            cursor = previous
-        }
-        
-        return streak
+        StreakCalculator.currentStreak(
+            type: journalStreakConfig.type,
+            completionDates: allEntries.map { $0.createdAt },
+            scheduledWeekdays: journalStreakConfig.normalizedScheduledWeekdays,
+            weeklyTarget: journalStreakConfig.clampedWeeklyTarget
+        )
     }
     
     /// The best streak ever seen. Computed from live entries, but the result is
     /// persisted to `JournalStats` so it can never drop below its historical high
     /// (e.g. due to a book deletion removing backing entries).
     private var bestJournalStreak: Int {
-        let computed = computedBestStreak
-        guard let record = journalStatsRecords.first else { return computed }
-        return max(computed, record.bestStreakEver)
+        let computed = StreakCalculator.bestStreak(
+            type: journalStreakConfig.type,
+            completionDates: allEntries.map { $0.createdAt },
+            scheduledWeekdays: journalStreakConfig.normalizedScheduledWeekdays,
+            weeklyTarget: journalStreakConfig.clampedWeeklyTarget
+        )
+        // The persisted high-water mark is consecutive-day based; only fold it in
+        // for consecutive mode so it never contaminates the other modes' units.
+        if journalStreakConfig.type == .consecutive, let record = journalStatsRecords.first {
+            return max(computed, record.bestStreakEver)
+        }
+        return computed
     }
 
     private func updateBestStreakIfNeeded() {
@@ -351,28 +385,14 @@ struct JournalTabView: View {
         try? modelContext.save()
     }
     
+    /// Consecutive-day best, used only to maintain the persisted high-water mark
+    /// (which protects the best streak from dropping when backing entries are
+    /// deleted). Mode-aware best for display is computed in `bestJournalStreak`.
     private var computedBestStreak: Int {
-        let sortedDays = journaledDayStarts.sorted()
-        guard !sortedDays.isEmpty else { return currentJournalStreak }
-        
-        var best = 1
-        var current = 1
-        
-        for index in 1..<sortedDays.count {
-            let previous = sortedDays[index - 1]
-            let currentDay = sortedDays[index]
-            
-            if let nextExpected = streakCalendar.date(byAdding: .day, value: 1, to: previous),
-               streakCalendar.isDate(nextExpected, inSameDayAs: currentDay) {
-                current += 1
-            } else {
-                current = 1
-            }
-            
-            best = max(best, current)
-        }
-        
-        return max(best, currentJournalStreak)
+        StreakCalculator.bestStreak(
+            type: .consecutive,
+            completionDates: allEntries.map { $0.createdAt }
+        )
     }
     
     /// Returns the single `JournalStats` record, creating it if it doesn't exist yet.
@@ -605,12 +625,29 @@ struct JournalTabView: View {
         let currentStreak: Int
         let bestStreak: Int
         let journaledToday: Bool
+        let streakType: StreakType
+        let goalSummary: String
+        let onSettings: () -> Void
+
+        private var currentUnitTitle: String {
+            if streakType == .frequency {
+                return currentStreak == 1 ? "Week in a row" : "Weeks in a row"
+            }
+            return currentStreak == 1 ? "Day in a row" : "Days in a row"
+        }
+
+        private var bestUnitTitle: String {
+            if streakType == .frequency {
+                return bestStreak == 1 ? "Best week" : "Best weeks"
+            }
+            return bestStreak == 1 ? "Best day" : "Best days"
+        }
         
         var body: some View {
             GlassCard {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .center, spacing: 10) {
-                        Image("pencilwrite")
+                        Image("writepen")
                             .renderingMode(.template)
                             .resizable()
                             .scaledToFit()
@@ -620,28 +657,38 @@ struct JournalTabView: View {
                         Text("Journal Streak")
                             .font(.system(size: 22, weight: .black, design: .rounded))
                             .foregroundStyle(LGradients.header)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .layoutPriority(1)
                         Spacer()
-                        
-                        Text(journaledToday ? "Written today" : "Not written today")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+
+                        Button(action: onSettings) {
+                            Image("settingswavy")
+                                .renderingMode(.template)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 22, height: 22)
+                                .foregroundStyle(LGradients.header)
+                        }
+                        .buttonStyle(.plain)
                     }
                     
                     HStack(spacing: 10) {
                         streakBubble(
-                            title: currentStreak == 1 ? "Day in a row" : "Days in a row",
+                            title: currentUnitTitle,
                             value: "\(currentStreak)"
                         )
                         
                         streakBubble(
-                            title: bestStreak == 1 ? "Best day" : "Best days",
+                            title: bestUnitTitle,
                             value: "\(bestStreak)"
                         )
                     }
-                    
-                    
+
+                    Text("Goal: \(goalSummary) • \(journaledToday ? "Written today" : "Not written today")")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(LColors.textSecondary)
+
                     Text(journaledToday ? "You've already journaled today — your streak is safe." : "Write today to keep your streak going.")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(LColors.textSecondary)
@@ -658,7 +705,7 @@ struct JournalTabView: View {
                     .tracking(0.5)
                 
                 Text(value)
-                    .font(.system(size: 30, weight: .black))
+                    .font(.system(size: 30, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -712,7 +759,7 @@ struct JournalTabView: View {
                     .tracking(0.5)
                 
                 Text("\(value)")
-                    .font(.system(size: 30, weight: .black))
+                    .font(.system(size: 30, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
                 
             }

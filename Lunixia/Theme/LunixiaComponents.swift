@@ -710,6 +710,7 @@ struct GlassTextEditor: View {
 struct GlassCard<Content: View>: View {
     var cornerRadius: CGFloat = 24
     var padding: CGFloat = LSpacing.cardPadding
+    var borderColor: Color? = nil
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -788,6 +789,12 @@ struct GlassCard<Content: View>: View {
                                 ),
                                 lineWidth: 1
                             )
+                    }
+                    .overlay {
+                        if let borderColor {
+                            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                                .strokeBorder(borderColor, lineWidth: 1)
+                        }
                     }
             }
             .shadow(color: Color.black.opacity(0.42), radius: 18, y: 10)

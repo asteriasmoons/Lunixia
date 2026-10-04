@@ -22,6 +22,10 @@ import SwiftData
 
 enum LunixiaLimitsManager {
 
+    // Premium limits are disabled. Keep the free-tier values and checks below
+    // available for a future re-enable while treating every caller as unlocked.
+    static let premiumLimitsEnabled = false
+
     // MARK: - Free Tier Limits
 
     static let freeJournalBookLimit: Int = 2
@@ -53,63 +57,63 @@ enum LunixiaLimitsManager {
     // MARK: - Limit Access
 
     static func journalBookLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeJournalBookLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeJournalBookLimit
     }
 
     static func journalEntriesPerBookLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeJournalEntriesPerBookLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeJournalEntriesPerBookLimit
     }
 
     static func moodLogsPerDayLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeMoodLogsPerDayLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeMoodLogsPerDayLimit
     }
 
     static func moodHistoryDaysLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeMoodHistoryDaysLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeMoodHistoryDaysLimit
     }
 
     static func completeVitalsEntriesPerDayLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeCompleteVitalsEntriesPerDayLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeCompleteVitalsEntriesPerDayLimit
     }
 
     static func vitalsHistoryDaysLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeVitalsHistoryDaysLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeVitalsHistoryDaysLimit
     }
 
     static func exerciseLogsPerDayLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeExerciseLogsPerDayLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeExerciseLogsPerDayLimit
     }
 
     static func exerciseHistoryDaysLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeExerciseHistoryDaysLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeExerciseHistoryDaysLimit
     }
 
     static func waterHistoryDaysLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeWaterHistoryDaysLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeWaterHistoryDaysLimit
     }
 
     static func stepsHistoryDaysLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeStepsHistoryDaysLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeStepsHistoryDaysLimit
     }
 
     static func medicationCardLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeMedicationCardLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeMedicationCardLimit
     }
 
     static func medicationHistoryDaysLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeMedicationHistoryDaysLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeMedicationHistoryDaysLimit
     }
 
     static func symptomLogsPerSevenDaysLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeSymptomLogsPerSevenDaysLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeSymptomLogsPerSevenDaysLimit
     }
 
     static func stickyNoteTabLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeStickyNoteTabLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeStickyNoteTabLimit
     }
 
     static func notesPerStickyNoteTabLimit(isPremium: Bool) -> Int {
-        isPremium ? premiumUnlimitedLimit : freeNotesPerStickyNoteTabLimit
+        (!premiumLimitsEnabled || isPremium) ? premiumUnlimitedLimit : freeNotesPerStickyNoteTabLimit
     }
 
     // MARK: - Creation Checks
@@ -204,7 +208,8 @@ enum LunixiaLimitsManager {
     }
 
     static func historyCutoffDate(days: Int, calendar: Calendar = .current) -> Date {
-        calendar.date(byAdding: .day, value: -(max(days, 1) - 1), to: startOfToday(calendar: calendar)) ?? startOfToday(calendar: calendar)
+        guard days != premiumUnlimitedLimit else { return .distantPast }
+        return calendar.date(byAdding: .day, value: -(max(days, 1) - 1), to: startOfToday(calendar: calendar)) ?? startOfToday(calendar: calendar)
     }
 
     static func isWithinFreeHistoryWindow(_ date: Date, historyDays: Int, calendar: Calendar = .current) -> Bool {
@@ -308,7 +313,7 @@ enum LunixiaLimitsManager {
     }
 
     static func symptomLogLimitMessage(isPremium: Bool) -> String {
-        if isPremium {
+        if !premiumLimitsEnabled || isPremium {
             return "Premium allows unlimited symptom logs."
         }
 
@@ -334,7 +339,7 @@ enum LunixiaLimitsManager {
     }
 
     private static func limitMessage(isPremium: Bool, freeLimit: Int, singular: String, plural: String) -> String {
-        if isPremium {
+        if !premiumLimitsEnabled || isPremium {
             return "Premium allows unlimited \(plural)."
         }
 
@@ -343,7 +348,7 @@ enum LunixiaLimitsManager {
     }
 
     private static func historyMessage(isPremium: Bool, freeDays: Int, label: String) -> String {
-        if isPremium {
+        if !premiumLimitsEnabled || isPremium {
             return "Premium allows unlimited \(label)."
         }
 

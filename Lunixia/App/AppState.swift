@@ -18,6 +18,7 @@ final class AppState: ObservableObject {
     
     @Published private(set) var status: SessionStatus = .checking
     @Published var isPopupPresented: Bool = false
+    @Published var pendingReportConversationID: String?
     
     var currentUser: AuthUser? {
         if case .signedIn(let user) = status {
@@ -28,6 +29,33 @@ final class AppState: ObservableObject {
 
     var currentAppleUserId: String? {
         currentUser?.appleUserId
+    }
+
+    // MARK: - Report conversation deep links / notification routing
+
+    func handleReportConversationURL(_ url: URL) {
+        guard url.scheme?.lowercased() == "lunixia" else { return }
+        let host = url.host?.lowercased()
+        let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")).lowercased()
+        guard host == "report-conversation" || path == "report-conversation" else { return }
+
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let reportID = components?.queryItems?.first(where: { $0.name == "reportID" || $0.name == "reportId" })?.value
+        if let reportID, !reportID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            handleReportConversationID(reportID)
+        }
+    }
+
+    func handleReportConversationID(_ reportID: String) {
+        let trimmed = reportID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        pendingReportConversationID = trimmed
+    }
+
+    func consumePendingReportConversationID() -> String? {
+        let value = pendingReportConversationID
+        pendingReportConversationID = nil
+        return value
     }
     
     private var bootstrapTask: Task<Void, Never>?

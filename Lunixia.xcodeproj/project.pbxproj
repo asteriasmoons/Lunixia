@@ -464,7 +464,12 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Lunixia/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Lunixia;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Export and share selected health information with doctors, caregivers, loved ones, or anyone you choose whenever you need it.";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Lunixia reads your health data to automatically fill in your mood log check-in metrics.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Lunixia writes your vitals, exercise, and water intake to Apple Health.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Lunixia uses your location to fetch current weather conditions for your mood log.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Lunixia uses your microphone for voice transcription";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Lunixia uses speech recognition to turn your voice into notes";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -505,7 +510,12 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Lunixia/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Lunixia;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Export and share selected health information with doctors, caregivers, loved ones, or anyone you choose whenever you need it.";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Lunixia reads your health data to automatically fill in your mood log check-in metrics.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Lunixia writes your vitals, exercise, and water intake to Apple Health.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Lunixia uses your location to fetch current weather conditions for your mood log.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Lunixia uses your microphone for voice transcription";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Lunixia uses speech recognition to turn your voice into notes";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

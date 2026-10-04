@@ -12,19 +12,17 @@ struct MoodTabView: View {
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var storeManager: LunixiaStoreManager
     @Query(sort: \MoodEntry.timestamp, order: .reverse) private var entries: [MoodEntry]
-    @Query private var chatSessions: [MoodChatSession]
+    @Query private var streakConfigs: [StreakConfiguration]
 
     @State private var showLogSheet = false
     @State private var selectedTab: Int = 0
     @State private var selectedEntry: MoodEntry? = nil
     @State private var showBanner = false
-    @State private var showChat = false
-    @State private var showMoodStats = false
-    @State private var showCooldownAlert = false
     @State private var visibleHistoryCount = 4
     
     @State private var showPremiumBanner = false
     @State private var premiumBannerMessage = ""
+    @State private var editingStreakConfig: StreakConfiguration? = nil
     
 #if canImport(UIKit)
 private var shouldUseFullScreenSheets: Bool {
@@ -38,13 +36,6 @@ private var shouldUseFullScreenSheets: Bool {
 
     private var isPremium: Bool {
         storeManager.isPremium
-    }
-
-    private var chatSession: MoodChatSession {
-        if let existing = chatSessions.first { return existing }
-        let new = MoodChatSession()
-        modelContext.insert(new)
-        return new
     }
 
     // MARK: Computed
@@ -74,21 +65,22 @@ private var shouldUseFullScreenSheets: Bool {
         return entries.filter { $0.timestamp >= cutoff }
     }
 
+    private var moodStreakConfig: StreakConfiguration {
+        streakConfigs.first(where: { $0.featureRawValue == StreakFeature.mood.rawValue })
+            ?? StreakConfiguration(feature: .mood)
+    }
+
+    private var moodStreakUnitLabel: String {
+        moodStreakConfig.type == .frequency ? "Week Streak" : "Day Streak"
+    }
+
     private var streak: Int {
-        let calendar = Calendar.current
-        let loggedDays = Set(entries.map { calendar.startOfDay(for: $0.timestamp) })
-
-        guard let mostRecentLoggedDay = loggedDays.max() else { return 0 }
-
-        var count = 0
-        var checkDate = mostRecentLoggedDay
-
-        while loggedDays.contains(checkDate) {
-            count += 1
-            checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate) ?? checkDate
-        }
-
-        return count
+        StreakCalculator.currentStreak(
+            type: moodStreakConfig.type,
+            completionDates: entries.map { $0.timestamp },
+            scheduledWeekdays: moodStreakConfig.normalizedScheduledWeekdays,
+            weeklyTarget: moodStreakConfig.clampedWeeklyTarget
+        )
     }
 
     private var uniqueEmotionCount: Int {
@@ -230,61 +222,33 @@ private var shouldUseFullScreenSheets: Bool {
                         .font(.system(size: 28, weight: .black, design: .rounded))
                         .foregroundStyle(LGradients.header)
                     Spacer()
-                    HStack(spacing: 14) {
-                        Button {
-                            if chatSession.canStartChat {
-                                showChat = true
-                            } else {
-                                showCooldownAlert = true
-                            }
-                        } label: {
-                            Image("chatlinesfill")
-                                .renderingMode(.template)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 24, height: 24)
-                                .foregroundStyle(
-                                    chatSession.canStartChat
-                                    ? AnyShapeStyle(LGradients.header)
-                                    : AnyShapeStyle(LColors.textSecondary.opacity(0.4))
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .simultaneousGesture(
-                            LongPressGesture(minimumDuration: 1.5).onEnded { _ in
-                                chatSession.lastChatDate = nil
-                                try? modelContext.save()
-                            }
-                        )
-
-                        Button {
-                            showMoodStats = true
-                        } label: {
-                            Image("charty")
-                                .renderingMode(.template)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 24, height: 24)
-                                .foregroundStyle(LGradients.header)
-                        }
-                        .buttonStyle(.plain)
-
-                        Button {
-                            if canCreateMoodLog {
-                                showLogSheet = true
-                            } else {
-                                showPremiumRequiredMessage()
-                            }
-                        } label: {
-                            Image("addwavy")
-                                .renderingMode(.template)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 24, height: 24)
-                                .foregroundStyle(canCreateMoodLog ? LGradients.header : LinearGradient(colors: [LColors.textSecondary.opacity(0.45)], startPoint: .top, endPoint: .bottom))
-                        }
-                        .buttonStyle(.plain)
+                    Button {
+                        editingStreakConfig = StreakConfiguration.fetchOrCreate(.mood, in: modelContext)
+                    } label: {
+                        Image("settingswavy")
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 24, height: 24)
+                            .foregroundStyle(LGradients.header)
                     }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 14)
+                    Button {
+                        if canCreateMoodLog {
+                            showLogSheet = true
+                        } else {
+                            showPremiumRequiredMessage()
+                        }
+                    } label: {
+                        Image("addwavy")
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 24, height: 24)
+                            .foregroundStyle(canCreateMoodLog ? LGradients.header : LinearGradient(colors: [LColors.textSecondary.opacity(0.45)], startPoint: .top, endPoint: .bottom))
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
@@ -363,30 +327,36 @@ private var shouldUseFullScreenSheets: Bool {
         )) { entry in
             MoodDetailView(entry: entry)
         }
-        .fullScreenCover(isPresented: $showChat) {
-            MoodChatView(session: chatSession)
-        }
-        .fullScreenCover(isPresented: $showMoodStats) {
-            MoodStatsView()
-        }
-        .alert("Come back soon", isPresented: $showCooldownAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            let hours = Int(chatSession.cooldownSecondsRemaining) / 3600
-            let minutes = (Int(chatSession.cooldownSecondsRemaining) % 3600) / 60
-            if hours > 0 {
-                Text("You can talk it out again in \(hours)h \(minutes)m. Give yourself time to sit with what came up.")
-            } else {
-                Text("You can talk it out again in \(minutes) minute\(minutes == 1 ? "" : "s"). Give yourself time to sit with what came up.")
-            }
-        }
         .onChange(of: entries) { _, newEntries in
-            LunixiaMoodWidgetWriter.write(allEntries: newEntries)
+            LunixiaMoodWidgetWriter.write(allEntries: newEntries, streakConfig: moodStreakConfig)
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
-                LunixiaMoodWidgetWriter.write(allEntries: entries)
+                LunixiaMoodWidgetWriter.write(allEntries: entries, streakConfig: moodStreakConfig)
             }
+        }
+        .onAppear {
+            StreakConfiguration.fetchOrCreate(.mood, in: modelContext)
+        }
+        .sheet(item: Binding(
+            get: { shouldUseFullScreenSheets ? nil : editingStreakConfig },
+            set: { editingStreakConfig = $0 }
+        )) { config in
+            StreakSettingsSheet(
+                title: "Mood Streak",
+                config: config,
+                onSave: { refreshMoodWidgetSoon() }
+            )
+        }
+        .fullScreenCover(item: Binding(
+            get: { shouldUseFullScreenSheets ? editingStreakConfig : nil },
+            set: { editingStreakConfig = $0 }
+        )) { config in
+            StreakSettingsSheet(
+                title: "Mood Streak",
+                config: config,
+                onSave: { refreshMoodWidgetSoon() }
+            )
         }
     }
 
@@ -426,14 +396,15 @@ private var shouldUseFullScreenSheets: Bool {
                         Text("\(streak)")
                             .font(.system(size: 32, weight: .black, design: .rounded))
                             .foregroundStyle(LGradients.header)
-                        Text("Day Streak")
+                        Text(moodStreakUnitLabel)
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .foregroundStyle(LColors.textSecondary)
                             .offset(y: -2)
                     }
-                    Text(streak == 0 ? "Log today to start" : streak == 1 ? "Keep it going" : "On a roll")
+                    Text(moodStreakConfig.displaySummary)
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundStyle(LColors.textSecondary.opacity(0.6))
+                        .lineLimit(1)
                 }
 
                 Spacer()
@@ -721,7 +692,7 @@ private var shouldUseFullScreenSheets: Bool {
 
     private func refreshMoodWidgetSoon() {
         DispatchQueue.main.async {
-            LunixiaMoodWidgetWriter.write(allEntries: entries)
+            LunixiaMoodWidgetWriter.write(allEntries: entries, streakConfig: moodStreakConfig)
         }
     }
 

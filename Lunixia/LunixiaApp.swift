@@ -10,12 +10,16 @@ import Combine
 @main
 struct LunixiaApp: App {
     @Environment(\.scenePhase) private var scenePhase
+    @UIApplicationDelegateAdaptor(LunixiaNotificationDelegate.self) private var notificationDelegate
 
     @StateObject private var appState = AppState()
     @StateObject private var storeManager = LunixiaStoreManager()
+    @StateObject private var syncIntegrityManager = LunixiaSyncIntegrityManager.shared
 
     static var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
+        LunixiaSyncIntegrityManager.shared.beginObservingCloudKitEvents()
+
+        let allModels: [any PersistentModel.Type] = [
             Item.self,
             NapEntry.self,
             MoodEntry.self,
@@ -50,8 +54,18 @@ struct LunixiaApp: App {
             MoodChatSession.self,
             MoodPhoneStatsSnapshot.self,
             MindfulSession.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+            SubmittedReport.self,
+            SubmittedReportAttachment.self,
+            StreakConfiguration.self,
+        ]
+
+        let schema = Schema(allModels)
+
+        let modelConfiguration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .private("iCloud.im.lystaria.Lurelia")
+        )
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
@@ -60,32 +74,26 @@ struct LunixiaApp: App {
         }
     }()
 
+    private var rootContent: AnyView {
+        if syncIntegrityManager.isReadyForContent {
+            return AnyView(ContentView())
+        }
+        return AnyView(LunixiaSyncWaitingView())
+    }
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            rootContent
                 .environmentObject(appState)
                 .environmentObject(storeManager)
                 .task {
                     await MainActor.run {
-                        LunixiaPointsManager.scheduleWeeklyReset(
-                            modelContainer: LunixiaApp.sharedModelContainer
-                        )
-
-                        LunixiaPointsManager.patchFaultyMidWeekReset(
-                            modelContainer: LunixiaApp.sharedModelContainer
-                        )
-
-                        MedicationAutomationManager.run(
-                            in: LunixiaApp.sharedModelContainer.mainContext
+                        LunixiaSyncIntegrityManager.shared.start(
+                            container: LunixiaApp.sharedModelContainer
                         )
                     }
 
                     LunixiaMoonPhaseWidgetWriter.write()
-                    await MainActor.run {
-                        LunixiaStickyNoteWidgetWriter.write(
-                            in: LunixiaApp.sharedModelContainer.mainContext
-                        )
-                    }
                 }
                 .onChange(of: scenePhase) { _, newPhase in
                     guard newPhase == .active else {
@@ -93,11 +101,8 @@ struct LunixiaApp: App {
                     }
 
                     Task { @MainActor in
-                        MedicationAutomationManager.run(
-                            in: LunixiaApp.sharedModelContainer.mainContext
-                        )
-                        LunixiaStickyNoteWidgetWriter.write(
-                            in: LunixiaApp.sharedModelContainer.mainContext
+                        LunixiaSyncIntegrityManager.shared.applicationBecameActive(
+                            container: LunixiaApp.sharedModelContainer
                         )
                     }
                 }
@@ -113,8 +118,8 @@ struct LunixiaApp: App {
                         return
                     }
 
-                    MedicationAutomationManager.run(
-                        in: LunixiaApp.sharedModelContainer.mainContext
+                    LunixiaSyncIntegrityManager.shared.runPeriodicAutomationsIfSafe(
+                        container: LunixiaApp.sharedModelContainer
                     )
                 }
         }

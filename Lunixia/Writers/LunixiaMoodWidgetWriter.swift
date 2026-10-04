@@ -119,9 +119,22 @@ enum LunixiaMoodWidgetWriter {
             .max(by: { $0.value < $1.value })?.key ?? ""
     }
 
+    /// Streak for the widget. Uses the feature's configured mode when a config is
+    /// supplied (so the widget matches the in-app streak), otherwise falls back to
+    /// the legacy consecutive calculation.
+    private static func resolvedStreak(_ entries: [MoodEntry], config: StreakConfiguration?) -> Int {
+        guard let config else { return streak(entries) }
+        return StreakCalculator.currentStreak(
+            type: config.type,
+            completionDates: entries.map { $0.timestamp },
+            scheduledWeekdays: config.normalizedScheduledWeekdays,
+            weeklyTarget: config.clampedWeeklyTarget
+        )
+    }
+
     // MARK: - Public Write
 
-    static func write(allEntries: [MoodEntry]) {
+    static func write(allEntries: [MoodEntry], streakConfig: StreakConfiguration? = nil) {
         let cutoff7   = Calendar.current.date(byAdding: .day, value: -7, to: .now) ?? .now
         let sevenDay  = allEntries.filter { $0.timestamp >= cutoff7 }
         let momentum  = sevenDayMomentum(sevenDay)
@@ -130,7 +143,7 @@ enum LunixiaMoodWidgetWriter {
         let snapshot = LunixiaMoodWidgetSnapshot(
             wellnessPercent:  momentum,
             wellnessLabel:    momentumLabel(momentum),
-            streak:           streak(allEntries),
+            streak:           resolvedStreak(allEntries, config: streakConfig),
             totalLogs:        allEntries.count,
             sevenDayLogCount: sevenDay.count,
             positivePct:      pos,
