@@ -164,7 +164,10 @@ final class LunixiaSyncIntegrityManager: ObservableObject {
             modelContainer: container,
             performImmediately: false
         )
-        MedicationAutomationManager.run(in: context)
+        MedicationAutomationManager.run(
+            in: context,
+            shouldReconcileSyncedInventory: true
+        )
         LunixiaStickyNoteWidgetWriter.write(in: context)
     }
 }

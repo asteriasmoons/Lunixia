@@ -9,13 +9,20 @@ import SwiftData
 @MainActor
 enum MedicationAutomationManager {
 
+    private struct InventoryAuditResult {
+        let amount: Int
+        let sourceEntry: LunixiaMedHistoryEntry
+        let firstGap: (expected: Int, recorded: Int)?
+    }
+
     // MARK: - Public API
 
     static func run(
         in modelContext: ModelContext,
         now: Date = Date(),
         shouldProcessRefills: Bool = true,
-        shouldProcessAutoDecreases: Bool = true
+        shouldProcessAutoDecreases: Bool = true,
+        shouldReconcileSyncedInventory: Bool = false
     ) {
         do {
             let descriptor = FetchDescriptor<LunixiaMedication>(
@@ -30,6 +37,14 @@ enum MedicationAutomationManager {
                 now: now,
                 shouldRepairRefills: shouldProcessRefills
             )
+
+            if shouldReconcileSyncedInventory {
+                reconcileSyncedInventoryAmounts(
+                    medications: medications,
+                    modelContext: modelContext,
+                    now: now
+                )
+            }
 
             if shouldProcessRefills {
                 processRefills(
@@ -90,18 +105,10 @@ enum MedicationAutomationManager {
             let refillDay = calendar.startOfDay(for: refillDate)
             let refillDayKey = dayKey(for: refillDay)
 
-            if let existingRefill = automatedRefillEntry(
+            if automatedRefillEntry(
                 for: medication,
                 effectiveDayKey: refillDayKey
-            ) {
-                reconcileInventoryFromAutomatedRefill(
-                    existingRefill,
-                    medication: medication,
-                    entries: medication.historyEntries ?? [],
-                    throughDayKey: todayKey,
-                    now: now
-                )
-
+            ) != nil {
                 medication.lastAutoRefillDayKey = todayKey
                 medication.updatedAt = now
 
@@ -377,10 +384,8 @@ enum MedicationAutomationManager {
             }
 
             removeDuplicateAutomatedTakenEntries(
-                for: medication,
                 entries: entries,
-                modelContext: modelContext,
-                now: now
+                modelContext: modelContext
             )
 
             if shouldRepairRefills {
@@ -389,18 +394,6 @@ enum MedicationAutomationManager {
                     modelContext: modelContext
                 )
 
-                removeImpossibleAutomatedRefills(
-                    for: medication,
-                    entries: entries,
-                    modelContext: modelContext,
-                    now: now
-                )
-
-                reconcileInventoryFromLatestAutomatedRefill(
-                    for: medication,
-                    entries: medication.historyEntries ?? entries,
-                    now: now
-                )
             }
 
             advanceAutoDecreaseDayKeyFromHistory(
@@ -411,10 +404,8 @@ enum MedicationAutomationManager {
     }
 
     private static func removeDuplicateAutomatedTakenEntries(
-        for medication: LunixiaMedication,
         entries: [LunixiaMedHistoryEntry],
-        modelContext: ModelContext,
-        now: Date
+        modelContext: ModelContext
     ) {
         let automatedTakenEntries = entries.filter {
             isAutomatedTakenEntry($0) && !$0.effectiveDayKey.isEmpty
@@ -437,20 +428,6 @@ enum MedicationAutomationManager {
             }
 
             for duplicate in sortedEntries.dropFirst() {
-                if shouldRestoreInventory(
-                    for: duplicate,
-                    among: entries
-                ) {
-                    let restoredAmount = medication.currentAmount + amountDecrement(
-                        from: duplicate.amountText
-                    )
-
-                    medication.currentAmount = medication.supplyAmount > 0
-                        ? min(medication.supplyAmount, restoredAmount)
-                        : restoredAmount
-                    medication.updatedAt = now
-                }
-
                 modelContext.delete(duplicate)
             }
         }
@@ -477,155 +454,233 @@ enum MedicationAutomationManager {
         }
     }
 
-    private static func removeImpossibleAutomatedRefills(
-        for medication: LunixiaMedication,
-        entries: [LunixiaMedHistoryEntry],
+    private static func reconcileSyncedInventoryAmounts(
+        medications: [LunixiaMedication],
         modelContext: ModelContext,
         now: Date
     ) {
-        guard medication.daysSupply > 0 else {
-            return
-        }
+        for medication in medications {
+            guard let audit = auditedInventoryResult(for: medication),
+                  medication.currentAmount != audit.amount,
+                  audit.firstGap != nil ||
+                    audit.sourceEntry.createdAt >= medication.updatedAt else {
+                continue
+            }
 
-        let calendar = Calendar.current
-        let automatedRefillEntries = entries
-            .filter { isAutomatedRefillEntry($0) && !$0.effectiveDayKey.isEmpty }
-            .sorted { lhs, rhs in
-                if lhs.effectiveDayKey != rhs.effectiveDayKey {
-                    return lhs.effectiveDayKey < rhs.effectiveDayKey
+            let previousAmount = medication.currentAmount
+            let historyEntries = medication.historyEntries ?? []
+            let previousSyncAudit = historyEntries
+                .filter {
+                    isSyncInventoryAuditEntry($0) &&
+                    $0.createdAt >= audit.sourceEntry.createdAt
                 }
+                .max { $0.createdAt < $1.createdAt }
+            let displayedPreviousAmount = previousSyncAudit
+                .flatMap { amountChange(from: $0.amountText)?.previous }
+                ?? previousAmount
+            let auditKey = syncInventoryAuditKey(
+                for: medication,
+                sourceEntry: audit.sourceEntry,
+                previousAmount: displayedPreviousAmount,
+                correctedAmount: audit.amount
+            )
 
+            medication.currentAmount = audit.amount
+            medication.updatedAt = now
+
+            let details: String
+            if let gap = audit.firstGap {
+                details = "Corrected inventory after CloudKit sync found an unaudited \(gap.expected) → \(gap.recorded) gap."
+            } else {
+                details = "Restored inventory to the latest audited value after CloudKit sync."
+            }
+
+            if let previousSyncAudit {
+                previousSyncAudit.amountText = "\(displayedPreviousAmount) → \(audit.amount)"
+                previousSyncAudit.details = details
+                previousSyncAudit.automationKey = auditKey
+                continue
+            }
+
+            let alreadyRecorded = historyEntries.contains {
+                $0.automationKey == auditKey
+            }
+
+            guard !alreadyRecorded else {
+                continue
+            }
+
+            modelContext.insert(
+                LunixiaMedHistoryEntry(
+                    type: .edited,
+                    amountText: "\(previousAmount) → \(audit.amount)",
+                    details: details,
+                    effectiveDayKey: dayKey(for: now),
+                    automationKey: auditKey,
+                    createdAt: now,
+                    medication: medication
+                )
+            )
+        }
+    }
+
+    private static func auditedInventoryResult(
+        for medication: LunixiaMedication
+    ) -> InventoryAuditResult? {
+        let entries = canonicalInventoryEntries(
+            medication.historyEntries ?? []
+        ).sorted { lhs, rhs in
+            if lhs.createdAt != rhs.createdAt {
                 return lhs.createdAt < rhs.createdAt
             }
 
-        var lastAcceptedRefillDay: Date?
-        var lastAcceptedRefillEntry: LunixiaMedHistoryEntry?
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
 
-        for entry in automatedRefillEntries {
-            guard let refillDay = date(fromDayKey: entry.effectiveDayKey) else {
+        var auditedAmount: Int?
+        var sourceEntry: LunixiaMedHistoryEntry?
+        var unresolvedGap: (expected: Int, recorded: Int)?
+        let latestScheduleChangeDayKey = entries
+            .filter {
+                $0.type == .edited &&
+                $0.details.localizedCaseInsensitiveContains("dose schedule")
+            }
+            .max { $0.createdAt < $1.createdAt }
+            .map { normalizedEffectiveDayKey(for: $0) }
+
+        for entry in entries {
+            guard !isSyncInventoryAuditEntry(entry) else {
                 continue
             }
 
-            if let previousRefillDay = lastAcceptedRefillDay,
-               let nextValidRefillDay = calendar.date(
-                byAdding: .day,
-                value: medication.daysSupply,
-                to: previousRefillDay
-               ),
-               refillDay < nextValidRefillDay {
-                if let previousRefillEntry = lastAcceptedRefillEntry {
-                    restoreInventoryForImpossibleRefillIfSafe(
-                        entry,
-                        previousRefillEntry: previousRefillEntry,
-                        previousRefillDay: previousRefillDay,
-                        medication: medication,
-                        entries: entries,
-                        now: now
+            guard let change = amountChange(from: entry.amountText) else {
+                continue
+            }
+
+            if change.previous == change.current {
+                continue
+            }
+
+            if auditedAmount == nil {
+                auditedAmount = change.previous
+            }
+
+            guard let expectedBeforeChange = auditedAmount else {
+                continue
+            }
+
+            switch entry.type {
+            case .taken:
+                updateUnresolvedGap(
+                    &unresolvedGap,
+                    expected: expectedBeforeChange,
+                    recorded: change.previous
+                )
+
+                let delta: Int
+                let entryDayKey = normalizedEffectiveDayKey(for: entry)
+                if let latestScheduleChangeDayKey,
+                   entryDayKey >= latestScheduleChangeDayKey,
+                   let entryDay = date(fromDayKey: entryDayKey) {
+                    delta = -scheduledDoseCount(
+                        for: medication,
+                        on: entryDay
                     )
+                } else {
+                    delta = change.current - change.previous
                 }
 
-                modelContext.delete(entry)
-                continue
+                auditedAmount = max(0, expectedBeforeChange + delta)
+
+            case .refilled:
+                auditedAmount = max(0, change.current)
+                unresolvedGap = nil
+
+            case .edited:
+                if entry.details == "Manual inventory increase" ||
+                    entry.details == "Manual inventory decrease" {
+                    updateUnresolvedGap(
+                        &unresolvedGap,
+                        expected: expectedBeforeChange,
+                        recorded: change.previous
+                    )
+
+                    let delta = change.current - change.previous
+                    auditedAmount = max(0, expectedBeforeChange + delta)
+                } else {
+                    auditedAmount = max(0, change.current)
+                    unresolvedGap = nil
+                }
             }
 
-            lastAcceptedRefillDay = refillDay
-            lastAcceptedRefillEntry = entry
-        }
-    }
-
-    private static func restoreInventoryForImpossibleRefillIfSafe(
-        _ impossibleRefill: LunixiaMedHistoryEntry,
-        previousRefillEntry: LunixiaMedHistoryEntry,
-        previousRefillDay: Date,
-        medication: LunixiaMedication,
-        entries: [LunixiaMedHistoryEntry],
-        now: Date
-    ) {
-        guard !hasManualInventoryChange(
-            among: entries,
-            after: previousRefillEntry.createdAt,
-            before: impossibleRefill.createdAt
-        ),
-        !hasManualInventoryChange(
-            among: entries,
-            after: impossibleRefill.createdAt
-        ),
-        let impossibleRefillDay = date(fromDayKey: impossibleRefill.effectiveDayKey),
-        let amountAfterImpossibleRefill = amountAfterChange(from: impossibleRefill.amountText)
-        else {
-            return
+            sourceEntry = entry
         }
 
-        let previousRefillAmount = amountAfterChange(
-            from: previousRefillEntry.amountText
-        ) ?? medication.supplyAmount
-        let expectedAmount = expectedAmountAfterScheduledDoses(
-            startingAmount: previousRefillAmount,
-            from: previousRefillDay,
-            through: impossibleRefillDay,
-            medication: medication
+        guard let auditedAmount, let sourceEntry else {
+            return nil
+        }
+
+        return InventoryAuditResult(
+            amount: auditedAmount,
+            sourceEntry: sourceEntry,
+            firstGap: unresolvedGap
         )
-        let excess = max(0, amountAfterImpossibleRefill - expectedAmount)
-
-        guard excess > 0 else {
-            return
-        }
-
-        medication.currentAmount = max(0, medication.currentAmount - excess)
-        medication.updatedAt = now
     }
 
-    private static func hasManualInventoryChange(
-        among entries: [LunixiaMedHistoryEntry],
-        after startDate: Date,
-        before endDate: Date? = nil
-    ) -> Bool {
-        entries.contains { entry in
-            guard entry.type == .edited,
-                  entry.createdAt > startDate else {
-                return false
+    private static func updateUnresolvedGap(
+        _ gap: inout (expected: Int, recorded: Int)?,
+        expected: Int,
+        recorded: Int
+    ) {
+        if expected == recorded {
+            gap = nil
+        } else if gap == nil ||
+                    gap.map({ $0.recorded - $0.expected }) != recorded - expected {
+            gap = (expected: expected, recorded: recorded)
+        }
+    }
+
+    private static func canonicalInventoryEntries(
+        _ entries: [LunixiaMedHistoryEntry]
+    ) -> [LunixiaMedHistoryEntry] {
+        let automatedTakenEntries = entries.filter { isAutomatedTakenEntry($0) }
+        let takenByDay = Dictionary(
+            grouping: automatedTakenEntries,
+            by: { normalizedEffectiveDayKey(for: $0) }
+        )
+        let keptTakenIDs = Set(takenByDay.values.compactMap { entriesForDay in
+            entriesForDay.sorted { lhs, rhs in
+                let lhsRank = duplicateKeepRank(for: lhs)
+                let rhsRank = duplicateKeepRank(for: rhs)
+
+                if lhsRank != rhsRank {
+                    return lhsRank < rhsRank
+                }
+
+                return lhs.createdAt < rhs.createdAt
+            }.first?.id
+        })
+
+        let automatedRefillEntries = entries.filter { isAutomatedRefillEntry($0) }
+        let refillByDay = Dictionary(
+            grouping: automatedRefillEntries,
+            by: { normalizedEffectiveDayKey(for: $0) }
+        )
+        let keptRefillIDs = Set(refillByDay.values.compactMap { entriesForDay in
+            entriesForDay.min { $0.createdAt < $1.createdAt }?.id
+        })
+
+        return entries.filter { entry in
+            if isAutomatedTakenEntry(entry) {
+                return keptTakenIDs.contains(entry.id)
             }
 
-            if let endDate {
-                return entry.createdAt < endDate
+            if isAutomatedRefillEntry(entry) {
+                return keptRefillIDs.contains(entry.id)
             }
 
             return true
         }
-    }
-
-    private static func expectedAmountAfterScheduledDoses(
-        startingAmount: Int,
-        from startDay: Date,
-        through endDay: Date,
-        medication: LunixiaMedication
-    ) -> Int {
-        let calendar = Calendar.current
-        var amount = max(0, startingAmount)
-        var day = calendar.startOfDay(for: startDay)
-        let end = calendar.startOfDay(for: endDay)
-
-        while day <= end {
-            amount = max(
-                0,
-                amount - scheduledDoseCount(
-                    for: medication,
-                    on: day
-                )
-            )
-
-            guard let nextDay = calendar.date(
-                byAdding: .day,
-                value: 1,
-                to: day
-            ) else {
-                break
-            }
-
-            day = nextDay
-        }
-
-        return amount
     }
 
     private static func advanceAutoDecreaseDayKeyFromHistory(
@@ -683,99 +738,6 @@ enum MedicationAutomationManager {
             }
             .sorted { $0.createdAt < $1.createdAt }
             .first
-    }
-
-    private static func reconcileInventoryFromLatestAutomatedRefill(
-        for medication: LunixiaMedication,
-        entries: [LunixiaMedHistoryEntry],
-        now: Date
-    ) {
-        let todayKey = dayKey(for: now)
-        guard let latestRefill = entries
-            .filter({
-                isAutomatedRefillEntry($0) &&
-                normalizedEffectiveDayKey(for: $0) <= todayKey
-            })
-            .sorted(by: {
-                let lhsDay = normalizedEffectiveDayKey(for: $0)
-                let rhsDay = normalizedEffectiveDayKey(for: $1)
-
-                if lhsDay != rhsDay {
-                    return lhsDay < rhsDay
-                }
-
-                return $0.createdAt < $1.createdAt
-            })
-            .last else {
-            return
-        }
-
-        reconcileInventoryFromAutomatedRefill(
-            latestRefill,
-            medication: medication,
-            entries: entries,
-            throughDayKey: todayKey,
-            now: now
-        )
-    }
-
-    private static func reconcileInventoryFromAutomatedRefill(
-        _ refillEntry: LunixiaMedHistoryEntry,
-        medication: LunixiaMedication,
-        entries: [LunixiaMedHistoryEntry],
-        throughDayKey: String,
-        now: Date
-    ) {
-        let refillDayKey = normalizedEffectiveDayKey(for: refillEntry)
-        guard !refillDayKey.isEmpty else {
-            return
-        }
-
-        guard !hasManualInventoryChange(
-            among: entries,
-            after: refillEntry.createdAt
-        ) else {
-            return
-        }
-
-        let refilledAmount = amountAfterChange(from: refillEntry.amountText)
-            ?? max(0, medication.supplyAmount)
-        let takenAmount = entries.reduce(0) { partial, entry in
-            guard entry.type == .taken else {
-                return partial
-            }
-
-            let entryDayKey = normalizedEffectiveDayKey(for: entry)
-            guard entryDayKey >= refillDayKey,
-                  entryDayKey <= throughDayKey else {
-                return partial
-            }
-
-            if entry.id == refillEntry.id {
-                return partial
-            }
-
-            let recordedDecrease = amountDecrement(from: entry.amountText)
-            if recordedDecrease > 0 {
-                return partial + recordedDecrease
-            }
-
-            guard let entryDay = date(fromDayKey: entryDayKey) else {
-                return partial
-            }
-
-            return partial + scheduledDoseCount(
-                for: medication,
-                on: entryDay
-            )
-        }
-
-        let reconciledAmount = max(0, refilledAmount - takenAmount)
-
-        if medication.currentAmount != reconciledAmount {
-            medication.currentAmount = reconciledAmount
-            medication.updatedAt = now
-        }
     }
 
     private static func normalizedAutomationKey(
@@ -843,44 +805,31 @@ enum MedicationAutomationManager {
         entry.details.hasPrefix("Auto-refilled")
     }
 
+    private static func isSyncInventoryAuditEntry(
+        _ entry: LunixiaMedHistoryEntry
+    ) -> Bool {
+        entry.automationKey.hasPrefix("medication:syncInventoryAudit:")
+    }
+
     private static func duplicateKeepRank(
         for entry: LunixiaMedHistoryEntry
     ) -> Int {
         isBackfilledTakenEntry(entry) ? 1 : 0
     }
 
-    private static func shouldRestoreInventory(
-        for duplicate: LunixiaMedHistoryEntry,
-        among entries: [LunixiaMedHistoryEntry]
-    ) -> Bool {
-        !entries.contains { entry in
-            entry.createdAt > duplicate.createdAt &&
-            (entry.type == .refilled || entry.type == .edited)
-        }
-    }
-
-    private static func amountDecrement(from amountText: String) -> Int {
+    private static func amountChange(
+        from amountText: String
+    ) -> (previous: Int, current: Int)? {
         let separator = amountText.contains("→") ? "→" : "->"
         let parts = amountText.components(separatedBy: separator)
 
         guard parts.count == 2,
               let previous = Int(parts[0].trimmingCharacters(in: .whitespacesAndNewlines)),
               let current = Int(parts[1].trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            return 0
-        }
-
-        return max(0, previous - current)
-    }
-
-    private static func amountAfterChange(from amountText: String) -> Int? {
-        let separator = amountText.contains("→") ? "→" : "->"
-        let parts = amountText.components(separatedBy: separator)
-
-        guard parts.count == 2 else {
             return nil
         }
 
-        return Int(parts[1].trimmingCharacters(in: .whitespacesAndNewlines))
+        return (previous, current)
     }
 
     private static func backfilledDay(from details: String) -> Date? {
@@ -940,5 +889,14 @@ enum MedicationAutomationManager {
         effectiveDayKey: String
     ) -> String {
         "medication:autoRefill:\(medication.id.uuidString):\(effectiveDayKey)"
+    }
+
+    private static func syncInventoryAuditKey(
+        for medication: LunixiaMedication,
+        sourceEntry: LunixiaMedHistoryEntry,
+        previousAmount: Int,
+        correctedAmount: Int
+    ) -> String {
+        "medication:syncInventoryAudit:\(medication.id.uuidString):\(sourceEntry.id.uuidString):\(previousAmount):\(correctedAmount)"
     }
 }

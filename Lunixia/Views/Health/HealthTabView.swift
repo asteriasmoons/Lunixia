@@ -827,7 +827,9 @@ private var shouldUseFullScreenSheets: Bool {
     // MARK: - Helpers
 
     private func refreshMedicationAutomation() {
-        MedicationAutomationManager.run(in: modelContext)
+        LunixiaSyncIntegrityManager.shared.runPeriodicAutomationsIfSafe(
+            container: LunixiaApp.sharedModelContainer
+        )
     }
 
     private func dismissInlineWaterControls() {

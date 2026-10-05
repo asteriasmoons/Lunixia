@@ -20,6 +20,7 @@ struct SelfCarePointsView: View {
     @State private var selectedEntry: LunixiaPointEntry? = nil
     @State private var showDeleteEntryConfirm = false
     @State private var heartPulse: Bool = false
+    @State private var isHowToEarnExpanded = false
 
     private let pink     = Color(red: 1.0, green: 0.35, blue: 0.65)
     private let pinkSoft = Color(red: 1.0, green: 0.35, blue: 0.65).opacity(0.18)
@@ -179,7 +180,10 @@ struct SelfCarePointsView: View {
                         }
 
                         // MARK: How to earn
-                        pinkSection(title: "How to Earn") {
+                        collapsiblePinkSection(
+                            title: "How to Earn",
+                            isExpanded: $isHowToEarnExpanded
+                        ) {
                             VStack(spacing: 10) {
                                 earnRow(label: "Journal Entry",      assetIcon: "lovedocs",  sfIcon: nil,              points: LunixiaPointsManager.journalEntryPoints)
                                 pinkDivider
@@ -251,6 +255,61 @@ struct SelfCarePointsView: View {
         .sheet(isPresented: $showHistorySheet) {
             PointsHistorySheet(resetLogs: resetLogs, userId: userId)
         }
+    }
+
+    @ViewBuilder
+    private func collapsiblePinkSection<Content: View>(
+        title: String,
+        isExpanded: Binding<Bool>,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    isExpanded.wrappedValue.toggle()
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Text(title.uppercased())
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(pink.opacity(0.7))
+                        .kerning(1.2)
+
+                    Spacer()
+
+                    Image(isExpanded.wrappedValue ? "chevup" : "chevdown")
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
+                        .foregroundStyle(pinkGrad)
+                }
+                .contentShape(Rectangle())
+                .padding(16)
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(isExpanded.wrappedValue ? "Expanded" : "Collapsed")
+
+            if isExpanded.wrappedValue {
+                pinkDivider
+                    .padding(.horizontal, 16)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    content()
+                }
+                .padding(16)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(pink.opacity(0.07))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(pink.opacity(0.25), lineWidth: 0.75)
+                )
+        )
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Stat card
@@ -504,12 +563,19 @@ struct PointsHistorySheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedResetLog: LunixiaPointsResetLog? = nil
     @State private var showDeleteResetLogConfirm = false
+    @State private var visibleHistoryCount = 4
+
+    private let historyPageSize = 4
 
     private let pink = Color(red: 1.0, green: 0.35, blue: 0.65)
     private let pinkGrad = LinearGradient(
         colors: [Color(red: 1.0, green: 0.4, blue: 0.7), Color(red: 1.0, green: 0.2, blue: 0.5)],
         startPoint: .topLeading, endPoint: .bottomTrailing
     )
+
+    private var visibleResetLogs: [LunixiaPointsResetLog] {
+        Array(resetLogs.prefix(visibleHistoryCount))
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -555,7 +621,7 @@ struct PointsHistorySheet: View {
                 } else {
                     ScrollView(.vertical, showsIndicators: false) {
                         VStack(spacing: 10) {
-                            ForEach(resetLogs) { log in
+                            ForEach(visibleResetLogs) { log in
                                 historyRow(log)
                                     .contextMenu {
                                         Button(role: .destructive) {
@@ -569,6 +635,31 @@ struct PointsHistorySheet: View {
                                         selectedResetLog = log
                                         showDeleteResetLogConfirm = true
                                     }
+                            }
+
+                            if resetLogs.count > historyPageSize {
+                                HStack(spacing: 10) {
+                                    if visibleHistoryCount > historyPageSize {
+                                        historyPagingButton(title: "Load Less") {
+                                            withAnimation(.easeInOut(duration: 0.22)) {
+                                                visibleHistoryCount = historyPageSize
+                                            }
+                                        }
+                                    }
+
+                                    if visibleHistoryCount < resetLogs.count {
+                                        historyPagingButton(title: "Load More") {
+                                            withAnimation(.easeInOut(duration: 0.22)) {
+                                                visibleHistoryCount = min(
+                                                    visibleHistoryCount + historyPageSize,
+                                                    resetLogs.count
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(.top, 4)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -593,6 +684,19 @@ struct PointsHistorySheet: View {
         modelContext.delete(selectedResetLog)
         try? modelContext.save()
         self.selectedResetLog = nil
+    }
+
+    @ViewBuilder
+    private func historyPagingButton(title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 9)
+                .background(pinkGrad, in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder

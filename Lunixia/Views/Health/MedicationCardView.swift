@@ -158,11 +158,6 @@ struct MedicationPageView: View {
                     return
                 }
                 
-                MedicationAutomationManager.run(
-                    in: modelContext,
-                    shouldProcessRefills: false,
-                    shouldProcessAutoDecreases: false
-                )
                 MedicationNotificationManager.shared.reschedule(for: med)
                 
                 flash("Medication added")
@@ -186,11 +181,6 @@ struct MedicationPageView: View {
                     return
                 }
 
-                MedicationAutomationManager.run(
-                    in: modelContext,
-                    shouldProcessRefills: false,
-                    shouldProcessAutoDecreases: false
-                )
                 MedicationNotificationManager.shared.reschedule(for: med)
 
                 flash("Medication added")
@@ -214,11 +204,6 @@ struct MedicationPageView: View {
                         return
                     }
 
-                    MedicationAutomationManager.run(
-                        in: modelContext,
-                        shouldProcessRefills: false,
-                        shouldProcessAutoDecreases: false
-                    )
                     MedicationNotificationManager.shared.reschedule(for: updated)
 
                     flash("Medication updated")
@@ -243,11 +228,6 @@ struct MedicationPageView: View {
                         return
                     }
 
-                    MedicationAutomationManager.run(
-                        in: modelContext,
-                        shouldProcessRefills: false,
-                        shouldProcessAutoDecreases: false
-                    )
                     MedicationNotificationManager.shared.reschedule(for: updated)
 
                     flash("Medication updated")
@@ -305,11 +285,6 @@ struct MedicationPageView: View {
                     guard saveMedicationChanges("update refill date") else {
                         return
                     }
-                    MedicationAutomationManager.run(
-                        in: modelContext,
-                        shouldProcessRefills: false,
-                        shouldProcessAutoDecreases: false
-                    )
                     MedicationNotificationManager.shared.reschedule(for: med)
                     flash("Refill date updated")
                 }
@@ -324,11 +299,6 @@ struct MedicationPageView: View {
                     guard saveMedicationChanges("update refill date") else {
                         return
                     }
-                    MedicationAutomationManager.run(
-                        in: modelContext,
-                        shouldProcessRefills: false,
-                        shouldProcessAutoDecreases: false
-                    )
                     MedicationNotificationManager.shared.reschedule(for: med)
                     flash("Refill date updated")
                 }
@@ -352,7 +322,9 @@ struct MedicationPageView: View {
             }
         }
         .task {
-            MedicationAutomationManager.run(in: modelContext)
+            LunixiaSyncIntegrityManager.shared.runPeriodicAutomationsIfSafe(
+                container: LunixiaApp.sharedModelContainer
+            )
             _ = await MedicationNotificationManager.shared.requestAuthorization()
         }
     }
