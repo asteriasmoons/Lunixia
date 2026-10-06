@@ -55,20 +55,25 @@ enum LunixiaMoodWidgetWriter {
     // MARK: - Score Helpers
 
     private static func momentumScore(_ entry: MoodEntry) -> Int {
-        let emotionScore = entry.resolvedEmotions.reduce(0) { acc, e in
-            switch e.category {
+        let supportiveEmotionScore = entry.resolvedEmotions.reduce(0) { acc, emotion in
+            switch emotion.category {
             case .positive: return acc + 2
             case .neutral:  return acc + 1
-            case .negative: return acc + 0
+            case .negative: return acc
             }
         }
+        let negativeEmotionPenalty = entry.resolvedEmotions.reduce(0) { acc, emotion in
+            emotion.category == .negative ? acc + 2 : acc
+        }
         let activityScore = entry.activityNames.reduce(0) { acc, name in
-            if wellnessActivities.contains(name)    { return acc + 2 }
-            if socialActivities.contains(name)      { return acc + 1 }
-            if enrichmentActivities.contains(name)  { return acc + 1 }
+            let normalizedName = name.lowercased()
+            if wellnessActivities.contains(normalizedName)    { return acc + 2 }
+            if socialActivities.contains(normalizedName)      { return acc + 1 }
+            if enrichmentActivities.contains(normalizedName)  { return acc + 1 }
             return acc
         }
-        return min(emotionScore + activityScore, 20)
+        let cappedSupportiveScore = min(supportiveEmotionScore + activityScore, 20)
+        return max(cappedSupportiveScore - negativeEmotionPenalty, 0)
     }
 
     private static func sevenDayMomentum(_ entries: [MoodEntry]) -> Int {
@@ -77,10 +82,10 @@ enum LunixiaMoodWidgetWriter {
         return Int((Double(total) / Double(entries.count * 20)) * 100)
     }
 
-    private static func momentumLabel(_ percent: Int) -> String {
+    private static func momentumLabel(_ percent: Int, hasEntries: Bool) -> String {
+        guard hasEntries else { return "Nothing logged yet" }
         switch percent {
-        case 0:       return "Nothing logged yet"
-        case 1..<25:  return "Low energy"
+        case 0..<25:  return "Low energy"
         case 25..<50: return "Building up"
         case 50..<70: return "Steady flow"
         case 70..<90: return "Strong momentum"
@@ -142,7 +147,7 @@ enum LunixiaMoodWidgetWriter {
 
         let snapshot = LunixiaMoodWidgetSnapshot(
             wellnessPercent:  momentum,
-            wellnessLabel:    momentumLabel(momentum),
+            wellnessLabel:    momentumLabel(momentum, hasEntries: !sevenDay.isEmpty),
             streak:           resolvedStreak(allEntries, config: streakConfig),
             totalLogs:        allEntries.count,
             sevenDayLogCount: sevenDay.count,

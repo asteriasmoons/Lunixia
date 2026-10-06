@@ -89,6 +89,30 @@ enum StreakCalculator {
         }
     }
 
+    /// Number of distinct goal-eligible completion days in the current
+    /// Monday-based week. Scheduled mode ignores completions on unselected days.
+    static func currentWeekCompletionCount(
+        type: StreakType,
+        completionDates: [Date],
+        scheduledWeekdays: [Int] = [],
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Int {
+        let days = normalizedDays(completionDates, calendar: calendar)
+        let weekStart = mondayOfWeek(for: now, calendar: calendar)
+        guard let nextWeekStart = calendar.date(byAdding: .day, value: 7, to: weekStart) else {
+            return 0
+        }
+
+        let selectedWeekdays = validWeekdays(scheduledWeekdays)
+        return days.reduce(into: 0) { count, day in
+            guard day >= weekStart, day < nextWeekStart else { return }
+            if type != .scheduled || selectedWeekdays.contains(calendar.component(.weekday, from: day)) {
+                count += 1
+            }
+        }
+    }
+
     // MARK: - Normalization helpers
 
     private static func normalizedDays(_ dates: [Date], calendar: Calendar) -> Set<Date> {

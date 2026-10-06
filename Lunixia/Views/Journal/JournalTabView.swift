@@ -109,6 +109,8 @@ struct JournalTabView: View {
                             journaledToday: journaledToday,
                             streakType: journalStreakConfig.type,
                             goalSummary: journalStreakConfig.displaySummary,
+                            weeklyGoalMarkerCount: journalStreakConfig.weeklyGoalMarkerCount,
+                            completedWeeklyGoalMarkerCount: completedJournalGoalMarkersThisWeek,
                             onSettings: { showStreakSettings = true }
                         )
                         .padding(.horizontal, LSpacing.pageHorizontal)
@@ -354,6 +356,18 @@ struct JournalTabView: View {
             completionDates: allEntries.map { $0.createdAt },
             scheduledWeekdays: journalStreakConfig.normalizedScheduledWeekdays,
             weeklyTarget: journalStreakConfig.clampedWeeklyTarget
+        )
+    }
+
+    private var completedJournalGoalMarkersThisWeek: Int {
+        min(
+            journalStreakConfig.weeklyGoalMarkerCount,
+            StreakCalculator.currentWeekCompletionCount(
+                type: journalStreakConfig.type,
+                completionDates: allEntries.map { $0.createdAt },
+                scheduledWeekdays: journalStreakConfig.normalizedScheduledWeekdays,
+                calendar: streakCalendar
+            )
         )
     }
     
@@ -627,6 +641,8 @@ struct JournalTabView: View {
         let journaledToday: Bool
         let streakType: StreakType
         let goalSummary: String
+        let weeklyGoalMarkerCount: Int
+        let completedWeeklyGoalMarkerCount: Int
         let onSettings: () -> Void
 
         private var currentUnitTitle: String {
@@ -685,6 +701,20 @@ struct JournalTabView: View {
                         )
                     }
 
+                    HStack(spacing: 10) {
+                        Text("This Week:")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(LColors.textSecondary)
+
+                        HStack(spacing: 7) {
+                            ForEach(0..<weeklyGoalMarkerCount, id: \.self) { index in
+                                weeklyGoalMarker(isCompleted: index < completedWeeklyGoalMarkerCount)
+                            }
+                        }
+
+                        Spacer(minLength: 0)
+                    }
+
                     Text("Goal: \(goalSummary) • \(journaledToday ? "Written today" : "Not written today")")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(LColors.textSecondary)
@@ -693,6 +723,19 @@ struct JournalTabView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(LColors.textSecondary)
                 }
+            }
+        }
+
+        @ViewBuilder
+        private func weeklyGoalMarker(isCompleted: Bool) -> some View {
+            if isCompleted {
+                Circle()
+                    .fill(LGradients.header)
+                    .frame(width: 12, height: 12)
+            } else {
+                Circle()
+                    .stroke(LGradients.header, lineWidth: 2)
+                    .frame(width: 12, height: 12)
             }
         }
         

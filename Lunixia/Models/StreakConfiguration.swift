@@ -97,6 +97,18 @@ final class StreakConfiguration {
         min(max(weeklyTarget, 1), 7)
     }
 
+    /// Number of weekly goal markers shown on streak cards.
+    var weeklyGoalMarkerCount: Int {
+        switch type {
+        case .consecutive:
+            return 7
+        case .scheduled:
+            return normalizedScheduledWeekdays.count
+        case .frequency:
+            return clampedWeeklyTarget
+        }
+    }
+
     /// Concise supporting text for the streak card (e.g. "Daily",
     /// "Mon • Wed • Fri", "3× per week").
     var displaySummary: String {

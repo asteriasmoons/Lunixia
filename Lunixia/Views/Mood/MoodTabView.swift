@@ -83,6 +83,17 @@ private var shouldUseFullScreenSheets: Bool {
         )
     }
 
+    private var completedMoodGoalMarkersThisWeek: Int {
+        min(
+            moodStreakConfig.weeklyGoalMarkerCount,
+            StreakCalculator.currentWeekCompletionCount(
+                type: moodStreakConfig.type,
+                completionDates: entries.map { $0.timestamp },
+                scheduledWeekdays: moodStreakConfig.normalizedScheduledWeekdays
+            )
+        )
+    }
+
     private var uniqueEmotionCount: Int {
         Set(entries.flatMap { $0.emotionNames }).count
     }
@@ -106,12 +117,15 @@ private var shouldUseFullScreenSheets: Bool {
 
     private func momentumScore(for entry: MoodEntry) -> Int {
         let emotions = entry.resolvedEmotions
-        let emotionScore = emotions.reduce(0) { acc, e in
-            switch e.category {
+        let supportiveEmotionScore = emotions.reduce(0) { acc, emotion in
+            switch emotion.category {
             case .positive: return acc + 2
             case .neutral:  return acc + 1
-            case .negative: return acc + 0
+            case .negative: return acc
             }
+        }
+        let negativeEmotionPenalty = emotions.reduce(0) { acc, emotion in
+            emotion.category == .negative ? acc + 2 : acc
         }
         let activityScore = entry.activityNames.reduce(0) { acc, name in
             let normalizedName = name.lowercased()
@@ -120,7 +134,8 @@ private var shouldUseFullScreenSheets: Bool {
             if Self.enrichmentActivities.contains(normalizedName)  { return acc + 1 }
             return acc
         }
-        return emotionScore + activityScore
+        let cappedSupportiveScore = min(supportiveEmotionScore + activityScore, 20)
+        return max(cappedSupportiveScore - negativeEmotionPenalty, 0)
     }
 
     private var sevenDayEntries: [MoodEntry] {
@@ -128,20 +143,20 @@ private var shouldUseFullScreenSheets: Bool {
         return entries.filter { $0.timestamp >= cutoff }
     }
 
-    /// 0–100 normalised score over last 7 days.
-    /// Max possible per entry: 5 emotions × 2 + 5 activities × 2 = 20; we cap at 20 per entry.
+    /// 0–100 normalized score over the last 7 days. Supportive points are capped
+    /// at 20 per entry before negative-emotion penalties are applied.
     private var sevenDayMomentum: Int {
         guard !sevenDayEntries.isEmpty else { return 0 }
         let maxPerEntry = 20
-        let total = sevenDayEntries.reduce(0) { $0 + min(momentumScore(for: $1), maxPerEntry) }
+        let total = sevenDayEntries.reduce(0) { $0 + momentumScore(for: $1) }
         let maxPossible = sevenDayEntries.count * maxPerEntry
         return Int((Double(total) / Double(maxPossible)) * 100)
     }
 
     private var momentumLabel: String {
+        guard !sevenDayEntries.isEmpty else { return "Nothing logged yet" }
         switch sevenDayMomentum {
-        case 0:       return "Nothing logged yet"
-        case 1..<25:  return "Low energy"
+        case 0..<25:  return "Low energy"
         case 25..<50: return "Building up"
         case 50..<70: return "Steady flow"
         case 70..<90: return "Strong momentum"
@@ -364,73 +379,106 @@ private var shouldUseFullScreenSheets: Bool {
 
     private var statsCard: some View {
         GlassCard(padding: 18) {
-            HStack(spacing: 0) {
-                // Momentum
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(sevenDayMomentum)")
-                            .font(.system(size: 32, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
-                        Text("%")
-                            .font(.system(size: 18, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
-                            .offset(y: -2)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 0) {
+                    // Momentum
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text("\(sevenDayMomentum)")
+                                .font(.system(size: 32, weight: .black, design: .rounded))
+                                .foregroundStyle(LGradients.header)
+                            Text("%")
+                                .font(.system(size: 18, weight: .black, design: .rounded))
+                                .foregroundStyle(LGradients.header)
+                                .offset(y: -2)
+                        }
+                        Text(momentumLabel)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(LColors.textSecondary.opacity(0.6))
+                            .lineLimit(1)
                     }
-                    Text(momentumLabel)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(LColors.textSecondary.opacity(0.6))
-                        .lineLimit(1)
-                }
 
-                Spacer()
+                    Spacer()
+
+                    Rectangle()
+                        .fill(LColors.glassBorder)
+                        .frame(width: 1, height: 44)
+
+                    Spacer()
+
+                    // Streak
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("\(streak)")
+                                .font(.system(size: 32, weight: .black, design: .rounded))
+                                .foregroundStyle(LGradients.header)
+                            Text(moodStreakUnitLabel)
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundStyle(LColors.textSecondary)
+                                .offset(y: -2)
+                        }
+                        Text(moodStreakConfig.displaySummary)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(LColors.textSecondary.opacity(0.6))
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Rectangle()
+                        .fill(LColors.glassBorder)
+                        .frame(width: 1, height: 44)
+
+                    Spacer()
+
+                    // Total logs
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("\(entries.count)")
+                                .font(.system(size: 32, weight: .black, design: .rounded))
+                                .foregroundStyle(LGradients.header)
+                            Text("Logs")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundStyle(LColors.textSecondary)
+                                .offset(y: -2)
+                        }
+                        Text("All time")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(LColors.textSecondary.opacity(0.6))
+                    }
+                }
 
                 Rectangle()
                     .fill(LColors.glassBorder)
-                    .frame(width: 1, height: 44)
+                    .frame(height: 1)
 
-                Spacer()
+                HStack(spacing: 10) {
+                    Text("This Week:")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(LColors.textSecondary)
 
-                // Streak
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text("\(streak)")
-                            .font(.system(size: 32, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
-                        Text(moodStreakUnitLabel)
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundStyle(LColors.textSecondary)
-                            .offset(y: -2)
+                    HStack(spacing: 7) {
+                        ForEach(0..<moodStreakConfig.weeklyGoalMarkerCount, id: \.self) { index in
+                            moodWeeklyGoalMarker(isCompleted: index < completedMoodGoalMarkersThisWeek)
+                        }
                     }
-                    Text(moodStreakConfig.displaySummary)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(LColors.textSecondary.opacity(0.6))
-                        .lineLimit(1)
-                }
 
-                Spacer()
-
-                Rectangle()
-                    .fill(LColors.glassBorder)
-                    .frame(width: 1, height: 44)
-
-                Spacer()
-
-                // Total logs
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text("\(entries.count)")
-                            .font(.system(size: 32, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
-                        Text("Logs")
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundStyle(LColors.textSecondary)
-                            .offset(y: -2)
-                    }
-                    Text("All time")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(LColors.textSecondary.opacity(0.6))
+                    Spacer(minLength: 0)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func moodWeeklyGoalMarker(isCompleted: Bool) -> some View {
+        if isCompleted {
+            Circle()
+                .fill(LGradients.header)
+                .frame(width: 12, height: 12)
+        } else {
+            Circle()
+                .stroke(LGradients.header, lineWidth: 2)
+                .frame(width: 12, height: 12)
         }
     }
 
