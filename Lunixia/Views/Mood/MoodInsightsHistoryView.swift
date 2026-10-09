@@ -58,7 +58,7 @@ struct MoodInsightsHistoryView: View {
         HStack {
             Text("Analysis History")
                 .font(.system(size: 24, weight: .black, design: .rounded))
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(LColors.textPrimary)
 
             Spacer()
 
@@ -274,7 +274,7 @@ struct MoodInsightsDetailSheet: View {
                 HStack {
                     Text("Mood Insights")
                         .font(.system(size: 24, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
 
                     Spacer()
 

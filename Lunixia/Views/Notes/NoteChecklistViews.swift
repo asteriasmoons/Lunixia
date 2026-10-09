@@ -15,12 +15,12 @@ struct NoteChecklistCircle: View {
         ZStack {
             Circle()
                 .strokeBorder(
-                    isCompleted ? AnyShapeStyle(Color.clear) : AnyShapeStyle(LGradients.header),
+                    AnyShapeStyle(Color.white),
                     lineWidth: lineWidth
                 )
                 .background(
                     Circle()
-                        .fill(isCompleted ? AnyShapeStyle(LGradients.header) : AnyShapeStyle(Color.clear))
+                        .fill(Color.clear)
             )
 
             if isCompleted {
@@ -113,7 +113,7 @@ struct NoteListMarker: View {
             switch kind {
             case .bullet:
                 Circle()
-                    .fill(LGradients.header)
+                    .fill(Color.white)
                     .frame(width: max(6, size * 0.38), height: max(6, size * 0.38))
                     .frame(width: size, height: size)
             case .numbered:

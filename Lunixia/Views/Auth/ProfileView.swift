@@ -31,7 +31,7 @@ struct ProfileView: View {
                 HStack(spacing: 12) {
                     Text("Profile")
                         .font(.system(size: 28, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     // Self-care points chip
                     HStack(spacing: 5) {
@@ -147,12 +147,14 @@ struct ProfileView: View {
                                         .scaledToFit()
                                         .frame(width: 22, height: 22)
                                         .foregroundStyle(LGradients.header)
+                                        .bubblyIconMaterial(tint: LColors.accent)
                                     Image("chevright")
                                         .renderingMode(.template)
                                         .resizable()
                                         .scaledToFit()
                                         .frame(width: 22, height: 22)
                                         .foregroundStyle(LColors.textSecondary)
+                                        .bubblyIconMaterial(tint: LColors.textSecondary)
                                 }
                             }
                         }

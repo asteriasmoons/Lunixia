@@ -15,6 +15,7 @@ struct JournalAnalysisSheet: View {
     }
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     let state: AnalysisState
     let onRetry: () -> Void
@@ -75,7 +76,7 @@ struct JournalAnalysisSheet: View {
         HStack {
             Text("Daily Analysis")
                 .font(.system(size: 24, weight: .black, design: .rounded))
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(LColors.textPrimary)
 
             Spacer()
 
@@ -113,17 +114,10 @@ struct JournalAnalysisSheet: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(LGradients.blue.opacity(0.16))
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .fill(Color.white.opacity(0.04))
-                    .allowsHitTesting(false)
-            )
-            .overlay(
-                Capsule()
-                    .stroke(LGradients.blue.opacity(0.55), lineWidth: 1)
-            )
+            .background {
+                BubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                    .clipShape(Capsule())
+            }
 
             Button {
                 onClose?() ?? dismiss()
@@ -133,7 +127,8 @@ struct JournalAnalysisSheet: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 18, height: 18)
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(theme.palette.primaryAction)
+                    .bubblyIconMaterial(tint: theme.palette.primaryAction)
             }
             .buttonStyle(.plain)
         }
@@ -147,6 +142,7 @@ struct JournalAnalysisSheet: View {
             Image(systemName: "sparkles")
                 .font(.system(size: 32))
                 .foregroundStyle(LColors.textSecondary)
+                .bubblyIconMaterial(tint: theme.palette.textSecondary)
 
             Text("Ready to reflect?")
                 .font(.system(size: 16, weight: .bold))
@@ -163,8 +159,12 @@ struct JournalAnalysisSheet: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
-                    .background(LGradients.blue)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .background {
+                        BubblyCardMaterial(
+                            tint: theme.palette.primaryAction,
+                            cornerRadius: 12
+                        )
+                    }
             }
             .buttonStyle(.plain)
             .padding(.top, 4)
@@ -193,6 +193,7 @@ struct JournalAnalysisSheet: View {
             Image(systemName: "sparkles")
                 .font(.system(size: 32))
                 .foregroundStyle(LColors.textSecondary)
+                .bubblyIconMaterial(tint: theme.palette.textSecondary)
 
             Text("No analysis yet")
                 .font(.system(size: 16, weight: .bold))
@@ -209,8 +210,12 @@ struct JournalAnalysisSheet: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
-                    .background(LGradients.blue)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .background {
+                        BubblyCardMaterial(
+                            tint: theme.palette.primaryAction,
+                            cornerRadius: 12
+                        )
+                    }
             }
             .buttonStyle(.plain)
             .padding(.top, 4)
@@ -258,8 +263,12 @@ struct JournalAnalysisSheet: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
-                        .background(LGradients.blue)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .background {
+                            BubblyCardMaterial(
+                                tint: theme.palette.indicators,
+                                cornerRadius: 12
+                            )
+                        }
                 }
                 .buttonStyle(.plain)
 
@@ -296,7 +305,8 @@ struct JournalAnalysisSheet: View {
             HStack(spacing: 10) {
                 Image(systemName: "heart.text.square")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.palette.primaryAction)
+                    .bubblyIconMaterial(tint: theme.palette.primaryAction)
 
                 Text(dateLabel.isEmpty ? "Today's Mood" : "\(dateLabel)'s Mood")
                     .font(.system(size: 12, weight: .bold))
@@ -310,9 +320,10 @@ struct JournalAnalysisSheet: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(LGradients.blue)
-                    .clipShape(Capsule())
-                    .overlay(Capsule().stroke(LColors.glassBorder, lineWidth: 1))
+                    .background {
+                        BubblyIconMaterial(tint: theme.palette.primaryAction)
+                            .clipShape(Capsule())
+                    }
             }
         }
 
@@ -324,32 +335,28 @@ struct JournalAnalysisSheet: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 18, height: 18)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(theme.palette.secondaryAccent)
+                        .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
 
                     Text("Themes")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(theme.palette.secondaryAccent)
+                        .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                 }
 
                 TagFlowLayout(spacing: 8) {
-                    ForEach(themes, id: \.self) { theme in
-                        Text(theme)
+                    ForEach(themes, id: \.self) { themeName in
+                        Text(themeName)
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(LGradients.tag)
+                            .foregroundStyle(.white)
+                            .shadow(color: .black, radius: 2, y: 1)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(LGradients.blue.opacity(0.16))
-                            .clipShape(Capsule())
-                            .overlay(
-                                Capsule()
-                                    .fill(Color.white.opacity(0.04))
-                                    .allowsHitTesting(false)
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(LGradients.blue.opacity(0.55), lineWidth: 1)
-                            )
+                            .background {
+                                BubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                                    .clipShape(Capsule())
+                            }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

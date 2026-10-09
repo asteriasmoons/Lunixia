@@ -82,14 +82,15 @@ struct LunixiaFeatureRequestView: View {
                 sectionColor: theme.palette.primaryAction,
                 bubbly: true
             )
-            LunixiaReportDiagnosticsCard(screenName: "Settings > Feature Request", borderColor: theme.palette.secondaryAccent)
+            LunixiaReportDiagnosticsCard(screenName: "Settings > Feature Request", borderColor: theme.palette.indicators)
             LunixiaReportStatusCards(successTitle: "Feature Request Sent", reportID: nil, error: submissionError)
             LunixiaReportSubmitButton(
                 title: "Submit Feature Request",
                 sendingTitle: "Sending...",
                 canSubmit: canSubmit,
                 isSubmitting: isSubmitting,
-                bubblyTint: theme.palette.primaryAction
+                bubblyTint: theme.palette.primaryAction,
+                usesCardMaterial: true
             ) {
                 Task { await submitFeatureRequest() }
             }
@@ -104,36 +105,36 @@ struct LunixiaFeatureRequestView: View {
 
     private var featureDetailsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            LunixiaReportSectionHeader(title: "Feature Details", color: theme.palette.secondaryAccent, bubbly: true)
+            LunixiaReportSectionHeader(title: "Feature Details", color: theme.palette.primaryAction, bubbly: true)
             LunixiaReportTextField(title: "Feature Title", placeholder: "Short clear name for the feature", text: $featureTitle, borderColor: theme.palette.primaryAction)
-            LunixiaReportPickerField(title: "Category", options: LunixiaReportFormOptions.areaGroups, selection: $areaGroup, bubblyTint: theme.palette.secondaryAccent, textShadow: true)
-            LunixiaReportPickerField(title: "Area", options: LunixiaReportFormOptions.areas(for: areaGroup), selection: $area, bubblyTint: theme.palette.primaryAction, textShadow: true)
-            LunixiaReportPickerField(title: "Feature Type", options: featureTypes, selection: $featureType, bubblyTint: theme.palette.secondaryAccent, textShadow: true)
-            LunixiaReportPickerField(title: "Importance", options: importanceOptions, selection: $importance, bubblyTint: theme.palette.primaryAction, textShadow: true)
-            LunixiaReportPickerField(title: "Who Is This For?", options: audienceOptions, selection: $intendedAudience, bubblyTint: theme.palette.secondaryAccent, textShadow: true)
+            LunixiaReportPickerField(title: "Category", options: LunixiaReportFormOptions.areaGroups, selection: $areaGroup, bubblyTint: theme.palette.primaryAction, usesCardMaterial: true, textShadow: true)
+            LunixiaReportPickerField(title: "Area", options: LunixiaReportFormOptions.areas(for: areaGroup), selection: $area, bubblyTint: theme.palette.secondaryAccent, usesCardMaterial: true, textShadow: true)
+            LunixiaReportPickerField(title: "Feature Type", options: featureTypes, selection: $featureType, bubblyTint: theme.palette.indicators, usesCardMaterial: true, textShadow: true)
+            LunixiaReportPickerField(title: "Importance", options: importanceOptions, selection: $importance, bubblyTint: theme.palette.primaryAction, usesCardMaterial: true, textShadow: true)
+            LunixiaReportPickerField(title: "Who Is This For?", options: audienceOptions, selection: $intendedAudience, bubblyTint: theme.palette.secondaryAccent, usesCardMaterial: true, textShadow: true)
         }
     }
 
     private var featureProposalSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            LunixiaReportSectionHeader(title: "Feature Proposal", color: theme.palette.primaryAction, bubbly: true)
+            LunixiaReportSectionHeader(title: "Feature Proposal", color: theme.palette.secondaryAccent, bubbly: true)
             LunixiaReportTextEditor(title: "What Should the Feature Do?", placeholder: "Describe the actual capability you want added and what you should be able to accomplish with it.", text: $featureDescription, minHeight: 130, borderColor: theme.palette.secondaryAccent)
-            LunixiaReportTextEditor(title: "How Should It Work?", placeholder: "Describe how you imagine using the feature from beginning to end, including what you would tap, enter, select, create, or receive.", text: $imaginedWorkflow, minHeight: 130, borderColor: theme.palette.primaryAction)
-            LunixiaReportPickerField(title: "Where Should It Live?", options: locationOptions, selection: $desiredLocation, bubblyTint: theme.palette.secondaryAccent, textShadow: true)
-            LunixiaReportPickerField(title: "Related Existing Feature", options: relatedFeatureOptions, selection: $relatedExistingFeature, bubblyTint: theme.palette.primaryAction, textShadow: true)
-            LunixiaReportTextEditor(title: "What Problem or Limitation Does It Address?", placeholder: "Explain what you currently cannot do, what feels limited, or what this feature would make easier or better.", text: $problemAddressed, minHeight: 130, borderColor: theme.palette.secondaryAccent)
-            LunixiaReportTextEditor(title: "Desired Result", placeholder: "Describe what should exist, happen, or become possible after successfully using the feature.", text: $desiredResult, minHeight: 120, borderColor: theme.palette.primaryAction)
+            LunixiaReportTextEditor(title: "How Should It Work?", placeholder: "Describe how you imagine using the feature from beginning to end, including what you would tap, enter, select, create, or receive.", text: $imaginedWorkflow, minHeight: 130, borderColor: theme.palette.indicators)
+            LunixiaReportPickerField(title: "Where Should It Live?", options: locationOptions, selection: $desiredLocation, bubblyTint: theme.palette.indicators, usesCardMaterial: true, textShadow: true)
+            LunixiaReportPickerField(title: "Related Existing Feature", options: relatedFeatureOptions, selection: $relatedExistingFeature, bubblyTint: theme.palette.primaryAction, usesCardMaterial: true, textShadow: true)
+            LunixiaReportTextEditor(title: "What Problem or Limitation Does It Address?", placeholder: "Explain what you currently cannot do, what feels limited, or what this feature would make easier or better.", text: $problemAddressed, minHeight: 130, borderColor: theme.palette.primaryAction)
+            LunixiaReportTextEditor(title: "Desired Result", placeholder: "Describe what should exist, happen, or become possible after successfully using the feature.", text: $desiredResult, minHeight: 120, borderColor: theme.palette.secondaryAccent)
         }
     }
 
     private var requirementsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            LunixiaReportSectionHeader(title: "Requirements", color: theme.palette.secondaryAccent, bubbly: true)
-            LunixiaReportPickerField(title: "Would This Require Saved Data?", options: yesNoUnsureOptions, selection: $requiresSavedData, bubblyTint: theme.palette.primaryAction, textShadow: true)
-            LunixiaReportPickerField(title: "Would This Need Notifications?", options: yesNoOptionalUnsureOptions, selection: $needsNotifications, bubblyTint: theme.palette.secondaryAccent, textShadow: true)
-            LunixiaReportPickerField(title: "Would This Need Sharing?", options: yesNoOptionalUnsureOptions, selection: $needsSharing, bubblyTint: theme.palette.primaryAction, textShadow: true)
-            LunixiaReportPickerField(title: "Would This Need AI?", options: yesNoOptionalUnsureOptions, selection: $needsAI, bubblyTint: theme.palette.secondaryAccent, textShadow: true)
-            LunixiaReportTextEditor(title: "Additional Details", placeholder: "Add anything else that would help explain the request.", text: $additionalDetails, minHeight: 100, borderColor: theme.palette.primaryAction)
+            LunixiaReportSectionHeader(title: "Requirements", color: theme.palette.indicators, bubbly: true)
+            LunixiaReportPickerField(title: "Would This Require Saved Data?", options: yesNoUnsureOptions, selection: $requiresSavedData, bubblyTint: theme.palette.secondaryAccent, usesCardMaterial: true, textShadow: true)
+            LunixiaReportPickerField(title: "Would This Need Notifications?", options: yesNoOptionalUnsureOptions, selection: $needsNotifications, bubblyTint: theme.palette.indicators, usesCardMaterial: true, textShadow: true)
+            LunixiaReportPickerField(title: "Would This Need Sharing?", options: yesNoOptionalUnsureOptions, selection: $needsSharing, bubblyTint: theme.palette.primaryAction, usesCardMaterial: true, textShadow: true)
+            LunixiaReportPickerField(title: "Would This Need AI?", options: yesNoOptionalUnsureOptions, selection: $needsAI, bubblyTint: theme.palette.secondaryAccent, usesCardMaterial: true, textShadow: true)
+            LunixiaReportTextEditor(title: "Additional Details", placeholder: "Add anything else that would help explain the request.", text: $additionalDetails, minHeight: 100, borderColor: theme.palette.indicators)
         }
     }
 

@@ -93,40 +93,27 @@ struct ActivityBubbleCanvas: View {
 // MARK: - Single Activity Bubble
 
 struct ActivityBubbleView: View {
+    @Environment(\.appTheme) private var theme
+
     let bubble: ActivityBubbleItem
     let isSelected: Bool
     let onTap: () -> Void
 
     var body: some View {
         ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            LColors.gradientPurple.opacity(0.9),
-                            LColors.gradientBlue.opacity(0.7)
-                        ],
-                        center: .topLeading,
-                        startRadius: 0,
-                        endRadius: bubble.radius * 1.6
-                    )
-                )
+            BubblyCardMaterial(
+                tint: theme.palette.secondaryAccent,
+                cornerRadius: bubble.radius
+            )
                 .overlay(
                     Circle()
                         .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(isSelected ? 0.9 : 0.3),
-                                    LColors.gradientPurple.opacity(0.4)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
+                            theme.palette.textPrimary.opacity(isSelected ? 0.9 : 0.3),
                             lineWidth: isSelected ? 2.5 : 1
                         )
                 )
                 .shadow(
-                    color: LColors.gradientPurple.opacity(isSelected ? 0.65 : 0.22),
+                    color: theme.palette.secondaryAccent.opacity(isSelected ? 0.55 : 0.18),
                     radius: isSelected ? 16 : 8
                 )
 

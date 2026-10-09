@@ -11,6 +11,7 @@ import SwiftData
 
 struct StreakSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     let title: String
     let config: StreakConfiguration
@@ -43,7 +44,7 @@ struct StreakSettingsSheet: View {
 
     var body: some View {
         ZStack {
-            LunixiaBackground()
+            theme.palette.background
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -55,13 +56,14 @@ struct StreakSettingsSheet: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }
                     .buttonStyle(.plain)
                     Spacer()
                     Text(title)
                         .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     Color.clear.frame(width: 22, height: 22)
                 }
@@ -104,8 +106,9 @@ struct StreakSettingsSheet: View {
             kicker("streak type")
 
             HStack(spacing: 6) {
-                ForEach(StreakType.allCases, id: \.self) { type in
+                ForEach(Array(StreakType.allCases.enumerated()), id: \.offset) { index, type in
                     let isSelected = selectedType == type
+                    let tint = theme.palette.rotation[index % theme.palette.rotation.count]
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             selectedType = type
@@ -113,17 +116,16 @@ struct StreakSettingsSheet: View {
                     } label: {
                         Text(type.displayName)
                             .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundStyle(isSelected ? Color.black.opacity(0.75) : LColors.textSecondary)
+                            .foregroundStyle(isSelected ? theme.palette.textPrimary : theme.palette.textSecondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 11)
-                            .background(
-                                isSelected ? AnyShapeStyle(LGradients.blue) : AnyShapeStyle(LColors.glassSurface2),
-                                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .strokeBorder(isSelected ? AnyShapeStyle(LColors.gradientBlue.opacity(0.5)) : AnyShapeStyle(LColors.glassBorder), lineWidth: 1)
-                            )
+                            .background {
+                                selectionBackground(
+                                    isSelected: isSelected,
+                                    tint: tint,
+                                    cornerRadius: 8
+                                )
+                            }
                     }
                     .buttonStyle(.plain)
                 }
@@ -143,8 +145,9 @@ struct StreakSettingsSheet: View {
             kicker("scheduled days")
 
             HStack(spacing: 6) {
-                ForEach(weekdays, id: \.weekday) { day in
+                ForEach(Array(weekdays.enumerated()), id: \.offset) { index, day in
                     let isSelected = selectedWeekdays.contains(day.weekday)
+                    let tint = theme.palette.rotation[index % theme.palette.rotation.count]
                     Button {
                         if isSelected {
                             selectedWeekdays.remove(day.weekday)
@@ -154,17 +157,16 @@ struct StreakSettingsSheet: View {
                     } label: {
                         Text(day.label)
                             .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .foregroundStyle(isSelected ? Color.black.opacity(0.75) : LColors.textSecondary)
+                            .foregroundStyle(isSelected ? theme.palette.textPrimary : theme.palette.textSecondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 9)
-                            .background(
-                                isSelected ? AnyShapeStyle(LGradients.blue) : AnyShapeStyle(LColors.glassSurface2),
-                                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .strokeBorder(isSelected ? AnyShapeStyle(LColors.gradientBlue.opacity(0.5)) : AnyShapeStyle(LColors.glassBorder), lineWidth: 1)
-                            )
+                            .background {
+                                selectionBackground(
+                                    isSelected: isSelected,
+                                    tint: tint,
+                                    cornerRadius: 8
+                                )
+                            }
                     }
                     .buttonStyle(.plain)
                 }
@@ -172,9 +174,9 @@ struct StreakSettingsSheet: View {
 
             Text(selectedWeekdays.isEmpty
                  ? "Select at least one day."
-                 : "Only selected days count. Other days are neutral.")
+                : "Only selected days count. Other days are neutral.")
                 .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(selectedWeekdays.isEmpty ? LColors.gradientPurple : LColors.textSecondary.opacity(0.6))
+                .foregroundStyle(selectedWeekdays.isEmpty ? theme.palette.secondaryAccent : theme.palette.textSecondary.opacity(0.6))
         }
     }
 
@@ -220,13 +222,12 @@ struct StreakSettingsSheet: View {
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 14, height: 14)
-                .foregroundStyle(enabled ? Color.black.opacity(0.8) : LColors.textSecondary.opacity(0.3))
-                .frame(width: 32, height: 32)
-                .background(
-                    enabled ? AnyShapeStyle(LGradients.blue) : AnyShapeStyle(LColors.glassSurface2),
-                    in: RoundedRectangle(cornerRadius: 9)
-                )
+                .frame(width: 20, height: 20)
+                .foregroundStyle(theme.palette.primaryAction)
+                .bubblyIconMaterial(tint: theme.palette.primaryAction)
+                .opacity(enabled ? 1 : 0.3)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -255,11 +256,12 @@ struct StreakSettingsSheet: View {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: LSpacing.buttonRadius, style: .continuous)
-                    .fill(LColors.accentGradient)
-                    .shadow(color: LColors.gradientPurple.opacity(0.35), radius: 12, y: 6)
-            )
+            .background {
+                BubblyCardMaterial(
+                    tint: theme.palette.primaryAction,
+                    cornerRadius: LSpacing.buttonRadius
+                )
+            }
             .opacity(canSave ? 1 : 0.4)
         }
         .buttonStyle(.plain)
@@ -274,5 +276,25 @@ struct StreakSettingsSheet: View {
             .font(.system(size: 11, weight: .bold, design: .rounded))
             .foregroundStyle(LColors.textSecondary)
             .tracking(0.5)
+    }
+
+    @ViewBuilder
+    private func selectionBackground(
+        isSelected: Bool,
+        tint: Color,
+        cornerRadius: CGFloat
+    ) -> some View {
+        if isSelected {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(theme.palette.textPrimary)
+                .bubblyIconMaterial(tint: tint)
+        } else {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(theme.palette.surface)
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(theme.palette.raisedSurface, lineWidth: 1)
+                }
+        }
     }
 }

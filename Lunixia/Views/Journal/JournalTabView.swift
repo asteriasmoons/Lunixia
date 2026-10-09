@@ -10,6 +10,7 @@ import Combine
 struct JournalTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.appTheme) private var theme
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var storeManager: LunixiaStoreManager
     @State private var showBookEditor = false
@@ -211,7 +212,7 @@ struct JournalTabView: View {
             HStack(spacing: 10) {
                 Text("Journal")
                     .font(.system(size: 28, weight: .black, design: .rounded))
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(LColors.textPrimary)
 
                 Spacer()
 
@@ -228,7 +229,15 @@ struct JournalTabView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 24, height: 24)
-                        .foregroundStyle(canCreateJournalBook ? LGradients.header : LinearGradient(colors: [LColors.textSecondary.opacity(0.45)], startPoint: .top, endPoint: .bottom))
+                        .foregroundStyle(
+                            canCreateJournalBook
+                            ? AnyShapeStyle(theme.palette.primaryAction)
+                            : AnyShapeStyle(LColors.textSecondary.opacity(0.45))
+                        )
+                        .bubblyIconMaterial(
+                            tint: theme.palette.primaryAction,
+                            isEnabled: canCreateJournalBook
+                        )
                 }
                 .buttonStyle(.plain)
                 .overlay(alignment: .center) {
@@ -565,6 +574,8 @@ struct JournalTabView: View {
     // MARK: - Mindful Minutes Banner
 
     struct MindfulMinutesBanner: View {
+        @Environment(\.appTheme) private var theme
+
         let minutes: Int
 
         var body: some View {
@@ -575,7 +586,8 @@ struct JournalTabView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 24, height: 24)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.secondaryAccent)
+                        .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Mindful Minutes")
@@ -591,13 +603,16 @@ struct JournalTabView: View {
 
                     Text("\(minutes)")
                         .font(.system(size: 24, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.secondaryAccent)
+                        .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                 }
             }
         }
     }
 
     struct ThemeInsightsCard: View {
+        @Environment(\.appTheme) private var theme
+
         var body: some View {
             GlassCard {
                 HStack(spacing: 12) {
@@ -606,7 +621,8 @@ struct JournalTabView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 24, height: 24)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.indicators)
+                        .bubblyIconMaterial(tint: theme.palette.indicators)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Theme Insights")
@@ -627,7 +643,8 @@ struct JournalTabView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 18, height: 18)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.indicators)
+                        .bubblyIconMaterial(tint: theme.palette.indicators)
                 }
             }
         }
@@ -636,6 +653,8 @@ struct JournalTabView: View {
     // MARK: - Journal Streak Card
     
     struct JournalStreakCard: View {
+        @Environment(\.appTheme) private var theme
+
         let currentStreak: Int
         let bestStreak: Int
         let journaledToday: Bool
@@ -668,11 +687,13 @@ struct JournalTabView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 24, height: 24)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                         
                         Text("Journal Streak")
                             .font(.system(size: 22, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                             .layoutPriority(1)
@@ -684,7 +705,8 @@ struct JournalTabView: View {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 22, height: 22)
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                         }
                         .buttonStyle(.plain)
                     }
@@ -708,7 +730,10 @@ struct JournalTabView: View {
 
                         HStack(spacing: 7) {
                             ForEach(0..<weeklyGoalMarkerCount, id: \.self) { index in
-                                weeklyGoalMarker(isCompleted: index < completedWeeklyGoalMarkerCount)
+                                weeklyGoalMarker(
+                                    index: index,
+                                    isCompleted: index < completedWeeklyGoalMarkerCount
+                                )
                             }
                         }
 
@@ -727,15 +752,18 @@ struct JournalTabView: View {
         }
 
         @ViewBuilder
-        private func weeklyGoalMarker(isCompleted: Bool) -> some View {
+        private func weeklyGoalMarker(index: Int, isCompleted: Bool) -> some View {
+            let tint = theme.palette.rotation[index % theme.palette.rotation.count]
+
             if isCompleted {
-                Circle()
-                    .fill(LGradients.header)
+                BubblyIconMaterial(tint: tint)
                     .frame(width: 12, height: 12)
+                    .clipShape(Circle())
             } else {
                 Circle()
-                    .stroke(LGradients.header, lineWidth: 2)
+                    .stroke(tint, lineWidth: 2)
                     .frame(width: 12, height: 12)
+                    .bubblyIconMaterial(tint: tint)
             }
         }
         
@@ -766,6 +794,8 @@ struct JournalTabView: View {
     // MARK: - Overview Card
     
     struct JournalOverviewCard: View {
+        @Environment(\.appTheme) private var theme
+
         let entriesThisWeek: Int
         let entriesThisYear: Int
         
@@ -778,11 +808,13 @@ struct JournalTabView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 24, height: 24)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                         
                         Text("Overview")
                             .font(.system(size: 22, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }
                     
                     HStack(spacing: 10) {
@@ -821,6 +853,8 @@ struct JournalTabView: View {
     // MARK: - Load More Button
     
     struct LoadMoreButton: View {
+        @Environment(\.appTheme) private var theme
+
         let action: () -> Void
         
         var body: some View {
@@ -838,15 +872,12 @@ struct JournalTabView: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(LColors.accentGradient)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(LGradients.header, lineWidth: 1.5)
-                )
-                .shadow(color: LColors.gradientPurple.opacity(0.32), radius: 14, x: 0, y: 8)
+                .background {
+                    BubblyCardMaterial(
+                        tint: theme.palette.primaryAction,
+                        cornerRadius: 14
+                    )
+                }
             }
             .buttonStyle(.plain)
         }
@@ -1032,6 +1063,7 @@ struct JournalTabView: View {
     struct JournalBookDetailView: View {
         @Environment(\.modelContext) private var modelContext
         @Environment(\.dismiss) private var dismiss
+        @Environment(\.appTheme) private var theme
         @EnvironmentObject private var appState: AppState
         let book: JournalBook
         
@@ -1167,13 +1199,6 @@ struct JournalTabView: View {
                     storedJournalPromptEditorSheet
                         .preferredColorScheme(.dark)
                 }
-                
-                // MARK: - Journal Prompt Overlay
-                if showPromptSheet {
-                    journalPromptOverlay
-                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                        .zIndex(10)
-                }
             }
             .navigationDestination(isPresented: $navigateToPreviewPage) {
                 Group {
@@ -1184,6 +1209,12 @@ struct JournalTabView: View {
                             .navigationBarBackButtonHidden(true)
                     }
                 }
+            }
+            .sheet(isPresented: $showPromptSheet) {
+                journalPromptSheet
+                    .preferredColorScheme(.dark)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: Binding(
                 get: { showAnalysisSheet && !shouldUseFullScreenSheets },
@@ -1201,7 +1232,6 @@ struct JournalTabView: View {
                 analysisMasterSheet
                     .preferredColorScheme(.dark)
             }
-            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showPromptSheet)
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showStoredPromptsPopup)
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showPromptEditorPopup)
             .onAppear {
@@ -1220,7 +1250,7 @@ struct JournalTabView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(book.title)
                             .font(.system(size: 28, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(LColors.textPrimary)
                         Text(totalEntryCount == 1 ? "1 entry" : "\(totalEntryCount) entries")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(LColors.textSecondary)
@@ -1236,7 +1266,8 @@ struct JournalTabView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 24, height: 24)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }
                     .buttonStyle(.plain)
 
@@ -1272,9 +1303,11 @@ struct JournalTabView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 24, height: 24)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.secondaryAccent)
+                            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                     }
-                    .buttonStyle(.plain)
+                    .menuStyle(.button)
+                    .buttonStyle(.borderless)
 
                     NavigationLink {
                         JournalEditorRoutePage(
@@ -1287,7 +1320,8 @@ struct JournalTabView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 24, height: 24)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.indicators)
+                            .bubblyIconMaterial(tint: theme.palette.indicators)
                     }
                     .buttonStyle(.plain)
                 }
@@ -1421,7 +1455,7 @@ struct JournalTabView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Journal Prompts")
                                 .font(.system(size: 28, weight: .black, design: .rounded))
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(LColors.textPrimary)
 
                             Text(book.title)
                                 .font(.system(size: 12, weight: .semibold))
@@ -1441,12 +1475,10 @@ struct JournalTabView: View {
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(LGradients.blue)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(LColors.glassBorder, lineWidth: 1)
-                                )
+                                .background {
+                                    BubblyIconMaterial(tint: theme.palette.primaryAction)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                }
                         }
                         .buttonStyle(.plain)
                     }
@@ -1464,10 +1496,12 @@ struct JournalTabView: View {
                                         .scaledToFit()
                                         .frame(width: 34, height: 34)
                                         .foregroundStyle(.white)
+                                        .bubblyIconMaterial(tint: .white)
 
                                     Text("No saved prompts yet")
                                         .font(.system(size: 16, weight: .bold))
                                         .foregroundStyle(.white)
+                                        .bubblyIconMaterial(tint: .white)
 
                                     Text("Add your first journal prompt to keep inspiration close by.")
                                         .font(.system(size: 13, weight: .semibold))
@@ -1477,7 +1511,10 @@ struct JournalTabView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 30)
                             } else {
-                                ForEach(visiblePrompts, id: \.persistentModelID) { prompt in
+                                ForEach(visiblePrompts.indices, id: \.self) { index in
+                                    let prompt = visiblePrompts[index]
+                                    let tint = theme.palette.rotation[index % theme.palette.rotation.count]
+
                                     GlassCard(padding: 14) {
                                         HStack(alignment: .top, spacing: 10) {
                                             Button {
@@ -1487,7 +1524,8 @@ struct JournalTabView: View {
                                             } label: {
                                                 Image(systemName: prompt.isCompleted ? "checkmark.circle.fill" : "circle")
                                                     .font(.system(size: 18, weight: .semibold))
-                                                    .foregroundStyle(prompt.isCompleted ? AnyShapeStyle(LGradients.blue) : AnyShapeStyle(LColors.textSecondary))
+                                                    .foregroundStyle(tint)
+                                                    .bubblyIconMaterial(tint: tint)
                                             }
                                             .buttonStyle(.plain)
                                             .padding(.top, 1)
@@ -1508,11 +1546,16 @@ struct JournalTabView: View {
                                                     .resizable()
                                                     .scaledToFit()
                                                     .frame(width: 16, height: 16)
-                                                    .foregroundStyle(.white)
+                                                    .foregroundStyle(tint)
+                                                    .bubblyIconMaterial(tint: tint)
                                             }
                                             .buttonStyle(.plain)
                                             .padding(.top, 1)
                                         }
+                                    }
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                            .strokeBorder(tint, lineWidth: 1)
                                     }
                                     .contextMenu {
                                         Button {
@@ -1596,7 +1639,7 @@ struct JournalTabView: View {
                     HStack {
                         Text(editingStoredPrompt == nil ? "Add Prompt" : "Edit Prompt")
                             .font(.system(size: 28, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(LColors.textPrimary)
 
                         Spacer()
                     }
@@ -1620,7 +1663,7 @@ struct JournalTabView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 16))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16)
-                                        .stroke(LColors.glassBorder, lineWidth: 1)
+                                        .stroke(theme.palette.primaryAction, lineWidth: 1)
                                 )
                         }
                         .padding(.horizontal, 20)
@@ -1656,8 +1699,12 @@ struct JournalTabView: View {
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
-                                .background(LGradients.blue)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .background {
+                                    BubblyCardMaterial(
+                                        tint: theme.palette.secondaryAccent,
+                                        cornerRadius: 12
+                                    )
+                                }
                         }
                         .buttonStyle(.plain)
                         .disabled(storedPromptDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -1717,27 +1764,25 @@ struct JournalTabView: View {
             try? modelContext.save()
         }
         
-        // MARK: - Journal Prompt Overlay
-        private var journalPromptOverlay: some View {
+        // MARK: - Journal Prompt Sheet
+        private var journalPromptSheet: some View {
             ZStack(alignment: .top) {
-                LunixiaPopup(
-                    onClose: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            showPromptSheet = false
-                        }
-                    },
-                    width: 460,
-                    heightRatio: 0.52,
-                    header: {
-                        HStack {
-                            Text("Journal Prompt")
-                                .font(.system(size: 28, weight: .black, design: .rounded))
-                                .foregroundStyle(LGradients.header)
+                LunixiaBackground()
+                    .ignoresSafeArea()
 
-                            Spacer()
-                        }
-                    },
-                    content: {
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("Journal Prompt")
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                            .foregroundStyle(LColors.textPrimary)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .padding(.bottom, 16)
+
+                    ScrollView(.vertical, showsIndicators: false) {
                         if promptLoading {
                             VStack(spacing: 14) {
                                 ProgressView()
@@ -1781,12 +1826,14 @@ struct JournalTabView: View {
                                         .scaledToFit()
                                         .frame(width: 28, height: 28)
                                         .foregroundStyle(.white)
+                                        .bubblyIconMaterial(tint: .white)
                                 }
 
                                 VStack(spacing: 6) {
                                     Text("Generate a Journal Prompt")
                                         .font(.system(size: 17, weight: .bold, design: .rounded))
                                         .foregroundStyle(.white)
+                                        .bubblyIconMaterial(tint: .white)
 
                                     Text("Tap the button below to receive a thoughtful writing prompt for your journal.")
                                         .font(.system(size: 13, weight: .semibold))
@@ -1823,7 +1870,8 @@ struct JournalTabView: View {
                                             .resizable()
                                             .scaledToFit()
                                             .frame(width: 16, height: 16)
-                                            .foregroundStyle(.white)
+                                            .foregroundStyle(theme.palette.primaryAction)
+                                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -1839,45 +1887,51 @@ struct JournalTabView: View {
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16)
                                     .stroke(LColors.glassBorder, lineWidth: 1)
-                            )
+                                )
                         }
-                    },
-                    footer: {
-                        HStack(spacing: 12) {
-                            Button {
-                                Task { await generatePrompt() }
-                            } label: {
-                                Text("Generate Prompt")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(LGradients.blue)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                            }
-                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 20)
 
-                            Button {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                    showPromptSheet = false
-                                }
-                            } label: {
-                                Text("Close")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(Color.white.opacity(0.08))
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(LColors.glassBorder, lineWidth: 1)
+                    HStack(spacing: 12) {
+                        Button {
+                            Task { await generatePrompt() }
+                        } label: {
+                            Text("Generate Prompt")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background {
+                                    BubblyCardMaterial(
+                                        tint: theme.palette.primaryAction,
+                                        cornerRadius: 12
                                     )
-                            }
-                            .buttonStyle(.plain)
+                                }
                         }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            showPromptSheet = false
+                        } label: {
+                            Text("Close")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.white.opacity(0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(LColors.glassBorder, lineWidth: 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
                     }
-                )
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    .background(Color.black.opacity(0.18))
+                }
 
                 if promptShowCopied {
                     Text("Copied to Clipboard")
@@ -2133,14 +2187,15 @@ struct JournalTabView: View {
                 HStack {
                     Text("Analysis")
                         .font(.system(size: 24, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     Button { showAnalysisSheet = false } label: {
                         Image("xmarkwavy")
                             .renderingMode(.template)
                             .resizable().scaledToFit()
                             .frame(width: 20, height: 20)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }.buttonStyle(.plain)
                 }
                 .padding(.horizontal, 22)
@@ -2157,18 +2212,11 @@ struct JournalTabView: View {
                         Task { await loadMostRecentAnalysis() }
                     } label: {
                         HStack(spacing: 14) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(LGradients.blue.opacity(0.18))
-                                    .frame(width: 44, height: 44)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .stroke(LGradients.blue.opacity(0.5), lineWidth: 1)
-                                    )
-                                Image(systemName: "sparkles")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(LGradients.header)
-                            }
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
+                                .frame(width: 44, height: 44)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("View Analysis")
                                     .font(.system(size: 15, weight: .bold))
@@ -2183,6 +2231,7 @@ struct JournalTabView: View {
                                 .resizable().scaledToFit()
                                 .frame(width: 12, height: 12)
                                 .foregroundStyle(LColors.textSecondary)
+                                .bubblyIconMaterial(tint: theme.palette.textSecondary)
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
@@ -2197,20 +2246,13 @@ struct JournalTabView: View {
                         analysisScreen = .entryPicker
                     } label: {
                         HStack(spacing: 14) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(LGradients.blue.opacity(0.18))
-                                    .frame(width: 44, height: 44)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .stroke(LGradients.blue.opacity(0.5), lineWidth: 1)
-                                    )
-                                Image("pencilwrite")
-                                    .renderingMode(.template)
-                                    .resizable().scaledToFit()
-                                    .frame(width: 20, height: 20)
-                                    .foregroundStyle(LGradients.header)
-                            }
+                            Image("pencilwrite")
+                                .renderingMode(.template)
+                                .resizable().scaledToFit()
+                                .frame(width: 20, height: 20)
+                                .foregroundStyle(theme.palette.secondaryAccent)
+                                .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                                .frame(width: 44, height: 44)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("New Analysis")
                                     .font(.system(size: 15, weight: .bold))
@@ -2225,6 +2267,7 @@ struct JournalTabView: View {
                                 .resizable().scaledToFit()
                                 .frame(width: 12, height: 12)
                                 .foregroundStyle(LColors.textSecondary)
+                                .bubblyIconMaterial(tint: theme.palette.textSecondary)
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
@@ -2244,37 +2287,41 @@ struct JournalTabView: View {
 
         private var analysisEntryPickerScreen: some View {
             VStack(spacing: 0) {
-                HStack {
-                    Button {
-                        analysisScreen = .landing
-                    } label: {
-                        Image("chevleft")
-                            .renderingMode(.template)
-                            .resizable().scaledToFit()
-                            .frame(width: 14, height: 14)
-                            .foregroundStyle(LGradients.header)
-                    }.buttonStyle(.plain)
-
-                    Spacer()
-
+                ZStack {
                     VStack(spacing: 2) {
                         Text("New Analysis")
                             .font(.system(size: 18, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(LColors.textPrimary)
                         Text("Pick an entry to reflect on")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(LColors.textSecondary)
                     }
 
-                    Spacer()
+                    HStack(spacing: 12) {
+                        Spacer()
 
-                    Button { showAnalysisSheet = false } label: {
-                        Image("xmarkwavy")
-                            .renderingMode(.template)
-                            .resizable().scaledToFit()
-                            .frame(width: 20, height: 20)
-                            .foregroundStyle(LGradients.header)
-                    }.buttonStyle(.plain)
+                        Button {
+                            analysisScreen = .landing
+                        } label: {
+                            Image("chevleft")
+                                .renderingMode(.template)
+                                .resizable().scaledToFit()
+                                .frame(width: 20, height: 20)
+                                .foregroundStyle(theme.palette.secondaryAccent)
+                                .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button { showAnalysisSheet = false } label: {
+                            Image("xmarkwavy")
+                                .renderingMode(.template)
+                                .resizable().scaledToFit()
+                                .frame(width: 20, height: 20)
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 .padding(.horizontal, 22)
                 .padding(.top, 22)
@@ -2300,8 +2347,11 @@ struct JournalTabView: View {
                 } else {
                     ScrollView(.vertical, showsIndicators: false) {
                         VStack(spacing: 10) {
-                            ForEach(entries, id: \.persistentModelID) { entry in
-                                entryPickerRow(entry)
+                            ForEach(entries.indices, id: \.self) { index in
+                                entryPickerRow(
+                                    entries[index],
+                                    tint: theme.palette.rotation[index % theme.palette.rotation.count]
+                                )
                             }
                         }
                         .padding(.horizontal, 22)
@@ -2312,7 +2362,7 @@ struct JournalTabView: View {
             }
         }
 
-        private func entryPickerRow(_ entry: JournalEntry) -> some View {
+        private func entryPickerRow(_ entry: JournalEntry, tint: Color) -> some View {
             let fmt = DateFormatter()
             fmt.dateFormat = "MMM d, yyyy"
             let dateStr = fmt.string(from: entry.createdAt)
@@ -2350,7 +2400,8 @@ struct JournalTabView: View {
                         .renderingMode(.template)
                         .resizable().scaledToFit()
                         .frame(width: 12, height: 12)
-                        .foregroundStyle(LColors.textSecondary)
+                        .foregroundStyle(tint)
+                        .bubblyIconMaterial(tint: tint)
                         .padding(.top, 4)
                 }
                 .padding(.horizontal, 16)

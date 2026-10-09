@@ -45,7 +45,8 @@ struct LunixiaBetaFeedbackView: View {
             }
             LunixiaReportInfoCard(
                 title: "Send beta feedback to Voxiverse",
-                message: "Share what you tested, what worked, and what needs improvement. Lunixia will attach the same automatic diagnostics used for reports."
+                message: "Share what you tested, what worked, and what needs improvement. Lunixia will attach the same automatic diagnostics used for reports.",
+                borderColor: theme.palette.primaryAction
             )
             detailsSection
             testingSection
@@ -53,18 +54,19 @@ struct LunixiaBetaFeedbackView: View {
                 title: "Attachments",
                 selectedPhotos: $selectedPhotos,
                 attachmentData: attachmentData,
-                accentColor: theme.palette.primaryAction,
-                sectionColor: theme.palette.secondaryAccent,
+                accentColor: theme.palette.secondaryAccent,
+                sectionColor: theme.palette.indicators,
                 bubbly: true
             )
-            LunixiaReportDiagnosticsCard(screenName: "Beta Feedback", borderColor: theme.palette.primaryAction)
+            LunixiaReportDiagnosticsCard(screenName: "Beta Feedback", borderColor: theme.palette.indicators)
             LunixiaReportStatusCards(successTitle: "Feedback Sent", reportID: submittedReportID, error: submissionError)
             LunixiaReportSubmitButton(
                 title: "Submit Beta Feedback",
                 sendingTitle: "Sending...",
                 canSubmit: canSubmit,
                 isSubmitting: isSubmitting,
-                bubblyTint: theme.palette.secondaryAccent
+                bubblyTint: theme.palette.primaryAction,
+                usesCardMaterial: true
             ) {
                 Task { await submitFeedback() }
             }
@@ -80,21 +82,21 @@ struct LunixiaBetaFeedbackView: View {
     private var detailsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             LunixiaReportSectionHeader(title: "Feedback Details", color: theme.palette.primaryAction, bubbly: true)
-            LunixiaReportTextField(title: "Title", placeholder: "Short summary of the feedback", text: $title, borderColor: theme.palette.secondaryAccent)
-            LunixiaReportPickerField(title: "Category", options: LunixiaReportFormOptions.areaGroups, selection: $areaGroup, bubblyTint: theme.palette.primaryAction, textShadow: true)
-            LunixiaReportPickerField(title: "Area", options: LunixiaReportFormOptions.areas(for: areaGroup), selection: $area, bubblyTint: theme.palette.secondaryAccent, textShadow: true)
-            LunixiaReportPickerField(title: "Overall Experience", options: overallExperiences, selection: $overallExperience, bubblyTint: theme.palette.primaryAction, textShadow: true)
+            LunixiaReportTextField(title: "Title", placeholder: "Short summary of the feedback", text: $title, borderColor: theme.palette.primaryAction)
+            LunixiaReportPickerField(title: "Category", options: LunixiaReportFormOptions.areaGroups, selection: $areaGroup, bubblyTint: theme.palette.primaryAction, usesCardMaterial: true, textShadow: true)
+            LunixiaReportPickerField(title: "Area", options: LunixiaReportFormOptions.areas(for: areaGroup), selection: $area, bubblyTint: theme.palette.secondaryAccent, usesCardMaterial: true, textShadow: true)
+            LunixiaReportPickerField(title: "Overall Experience", options: overallExperiences, selection: $overallExperience, bubblyTint: theme.palette.indicators, usesCardMaterial: true, textShadow: true)
         }
     }
 
     private var testingSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             LunixiaReportSectionHeader(title: "Testing Notes", color: theme.palette.secondaryAccent, bubbly: true)
-            LunixiaReportTextEditor(title: "What Did You Test?", placeholder: "Which feature, workflow, screen, or part of Lunixia were you testing?", text: $testedWhat, minHeight: 130, borderColor: theme.palette.primaryAction)
-            LunixiaReportTextEditor(title: "What Worked Well?", placeholder: "What felt good, clear, useful, or polished?", text: $workedWell, minHeight: 110, borderColor: theme.palette.secondaryAccent)
+            LunixiaReportTextEditor(title: "What Did You Test?", placeholder: "Which feature, workflow, screen, or part of Lunixia were you testing?", text: $testedWhat, minHeight: 130, borderColor: theme.palette.secondaryAccent)
+            LunixiaReportTextEditor(title: "What Worked Well?", placeholder: "What felt good, clear, useful, or polished?", text: $workedWell, minHeight: 110, borderColor: theme.palette.indicators)
             LunixiaReportTextEditor(title: "What Could Be Better?", placeholder: "What felt awkward, confusing, incomplete, slow, or visually off?", text: $couldBeBetter, minHeight: 110, borderColor: theme.palette.primaryAction)
             LunixiaReportTextEditor(title: "Anything Unexpected?", placeholder: "Anything surprising that was not necessarily a bug?", text: $unexpected, minHeight: 100, borderColor: theme.palette.secondaryAccent)
-            LunixiaReportTextEditor(title: "Additional Thoughts", placeholder: "Anything else you want to share?", text: $additionalThoughts, minHeight: 100, borderColor: theme.palette.primaryAction)
+            LunixiaReportTextEditor(title: "Additional Thoughts", placeholder: "Anything else you want to share?", text: $additionalThoughts, minHeight: 100, borderColor: theme.palette.indicators)
         }
     }
 

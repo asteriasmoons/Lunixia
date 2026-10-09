@@ -32,7 +32,7 @@ struct JournalBookEditorSheet: View {
                 HStack {
                     Text(book != nil ? "Edit Book" : "New Book")
                         .font(.system(size: 22, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     Button { closeAction() } label: {
                         Image("xmarkwavy")

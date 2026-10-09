@@ -10,6 +10,7 @@ import WidgetKit
 struct MoodTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.appTheme) private var theme
     @EnvironmentObject private var storeManager: LunixiaStoreManager
     @Query(sort: \MoodEntry.timestamp, order: .reverse) private var entries: [MoodEntry]
     @Query private var streakConfigs: [StreakConfiguration]
@@ -227,7 +228,7 @@ private var shouldUseFullScreenSheets: Bool {
 
     var body: some View {
         ZStack {
-            LunixiaBackground()
+            theme.palette.background
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -235,7 +236,7 @@ private var shouldUseFullScreenSheets: Bool {
                 HStack {
                     Text("Mood")
                         .font(.system(size: 28, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     Button {
                         editingStreakConfig = StreakConfiguration.fetchOrCreate(.mood, in: modelContext)
@@ -245,7 +246,8 @@ private var shouldUseFullScreenSheets: Bool {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 24, height: 24)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.secondaryAccent)
+                            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                     }
                     .buttonStyle(.plain)
                     .padding(.trailing, 14)
@@ -261,7 +263,12 @@ private var shouldUseFullScreenSheets: Bool {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 24, height: 24)
-                            .foregroundStyle(canCreateMoodLog ? LGradients.header : LinearGradient(colors: [LColors.textSecondary.opacity(0.45)], startPoint: .top, endPoint: .bottom))
+                            .foregroundStyle(canCreateMoodLog ? theme.palette.primaryAction : theme.palette.textSecondary.opacity(0.45))
+                            .bubblyIconMaterial(
+                                tint: canCreateMoodLog
+                                    ? theme.palette.primaryAction
+                                    : theme.palette.textSecondary.opacity(0.45)
+                            )
                     }
                     .buttonStyle(.plain)
                 }
@@ -303,7 +310,7 @@ private var shouldUseFullScreenSheets: Bool {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 10)
-                        .background(LColors.accentGradient)
+                        .background(theme.palette.primaryAction)
                         .clipShape(Capsule())
                         .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
                         .padding(.top, 18)
@@ -378,7 +385,7 @@ private var shouldUseFullScreenSheets: Bool {
     // MARK: Stats card
 
     private var statsCard: some View {
-        GlassCard(padding: 18) {
+        MoodSurfaceCard(padding: 18) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 0) {
                     // Momentum
@@ -386,10 +393,12 @@ private var shouldUseFullScreenSheets: Bool {
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
                             Text("\(sevenDayMomentum)")
                                 .font(.system(size: 32, weight: .black, design: .rounded))
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                             Text("%")
                                 .font(.system(size: 18, weight: .black, design: .rounded))
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                                 .offset(y: -2)
                         }
                         Text(momentumLabel)
@@ -411,7 +420,8 @@ private var shouldUseFullScreenSheets: Bool {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text("\(streak)")
                                 .font(.system(size: 32, weight: .black, design: .rounded))
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.secondaryAccent)
+                                .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                             Text(moodStreakUnitLabel)
                                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                                 .foregroundStyle(LColors.textSecondary)
@@ -436,7 +446,8 @@ private var shouldUseFullScreenSheets: Bool {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text("\(entries.count)")
                                 .font(.system(size: 32, weight: .black, design: .rounded))
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.indicators)
+                                .bubblyIconMaterial(tint: theme.palette.indicators)
                             Text("Logs")
                                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                                 .foregroundStyle(LColors.textSecondary)
@@ -459,7 +470,10 @@ private var shouldUseFullScreenSheets: Bool {
 
                     HStack(spacing: 7) {
                         ForEach(0..<moodStreakConfig.weeklyGoalMarkerCount, id: \.self) { index in
-                            moodWeeklyGoalMarker(isCompleted: index < completedMoodGoalMarkersThisWeek)
+                            moodWeeklyGoalMarker(
+                                index: index,
+                                isCompleted: index < completedMoodGoalMarkersThisWeek
+                            )
                         }
                     }
 
@@ -470,22 +484,25 @@ private var shouldUseFullScreenSheets: Bool {
     }
 
     @ViewBuilder
-    private func moodWeeklyGoalMarker(isCompleted: Bool) -> some View {
+    private func moodWeeklyGoalMarker(index: Int, isCompleted: Bool) -> some View {
+        let tint = theme.palette.rotation[index % theme.palette.rotation.count]
+
         if isCompleted {
-            Circle()
-                .fill(LGradients.header)
+            BubblyIconMaterial(tint: tint)
                 .frame(width: 12, height: 12)
+                .clipShape(Circle())
         } else {
             Circle()
-                .stroke(LGradients.header, lineWidth: 2)
+                .stroke(theme.palette.textPrimary, lineWidth: 2)
                 .frame(width: 12, height: 12)
+                .bubblyIconMaterial(tint: tint)
         }
     }
 
     // MARK: Breakdown card
 
     private var breakdownCard: some View {
-        GlassCard(padding: 18) {
+        MoodSurfaceCard(padding: 18) {
             VStack(alignment: .leading, spacing: 16) {
 
                 // Header row
@@ -516,27 +533,24 @@ private var shouldUseFullScreenSheets: Bool {
                         GeometryReader { geo in
                             HStack(spacing: 3) {
                                 if breakdown.positive > 0 {
-                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                        .fill(LinearGradient(
-                                            colors: [Color(lunixiaHex: "#9B6FF7"), Color(lunixiaHex: "#7d19f7")],
-                                            startPoint: .leading, endPoint: .trailing
-                                        ))
+                                    BubblyCardMaterial(
+                                        tint: theme.palette.primaryAction,
+                                        cornerRadius: 4
+                                    )
                                         .frame(width: geo.size.width * CGFloat(breakdown.positive) / 100)
                                 }
                                 if breakdown.neutral > 0 {
-                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                        .fill(LinearGradient(
-                                            colors: [Color(lunixiaHex: "#03dbfc"), Color(lunixiaHex: "#00b8d9")],
-                                            startPoint: .leading, endPoint: .trailing
-                                        ))
+                                    BubblyCardMaterial(
+                                        tint: theme.palette.secondaryAccent,
+                                        cornerRadius: 4
+                                    )
                                         .frame(width: geo.size.width * CGFloat(breakdown.neutral) / 100)
                                 }
                                 if breakdown.negative > 0 {
-                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                        .fill(LinearGradient(
-                                            colors: [Color(lunixiaHex: "#e019d4"), Color(lunixiaHex: "#b8009e")],
-                                            startPoint: .leading, endPoint: .trailing
-                                        ))
+                                    BubblyCardMaterial(
+                                        tint: theme.palette.indicators,
+                                        cornerRadius: 4
+                                    )
                                         .frame(width: geo.size.width * CGFloat(breakdown.negative) / 100)
                                 }
                             }
@@ -546,9 +560,9 @@ private var shouldUseFullScreenSheets: Bool {
                         .frame(height: 10)
 
                         HStack(spacing: 14) {
-                            breakdownLegendDot(color: Color(lunixiaHex: "#9B6FF7"), label: "Positive", value: breakdown.positive)
-                            breakdownLegendDot(color: Color(lunixiaHex: "#03dbfc"), label: "Neutral",  value: breakdown.neutral)
-                            breakdownLegendDot(color: Color(lunixiaHex: "#e019d4"), label: "Negative", value: breakdown.negative)
+                            breakdownLegendDot(color: theme.palette.primaryAction, label: "Positive", value: breakdown.positive)
+                            breakdownLegendDot(color: theme.palette.secondaryAccent, label: "Neutral", value: breakdown.neutral)
+                            breakdownLegendDot(color: theme.palette.indicators, label: "Negative", value: breakdown.negative)
                         }
                     }
 
@@ -565,7 +579,8 @@ private var shouldUseFullScreenSheets: Bool {
                             .foregroundStyle(LColors.textSecondary.opacity(0.5))
                         Text(topEmotion ?? "—")
                             .font(.system(size: 15, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                             .contentTransition(.identity)
                     }
 
@@ -583,7 +598,8 @@ private var shouldUseFullScreenSheets: Bool {
                             .foregroundStyle(LColors.textSecondary.opacity(0.5))
                         Text(topActivity ?? "—")
                             .font(.system(size: 15, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.secondaryAccent)
+                            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                             .contentTransition(.identity)
                     }
                 }
@@ -594,8 +610,7 @@ private var shouldUseFullScreenSheets: Bool {
     @ViewBuilder
     private func breakdownLegendDot(color: Color, label: String, value: Int) -> some View {
         HStack(spacing: 5) {
-            Circle()
-                .fill(color)
+            BubblyCardMaterial(tint: color, cornerRadius: 3.5)
                 .frame(width: 7, height: 7)
             Text("\(value)% \(label)")
                 .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -610,6 +625,9 @@ private var shouldUseFullScreenSheets: Bool {
             ForEach(["Today", "History"], id: \.self) { tab in
                 let index = tab == "Today" ? 0 : 1
                 let isSelected = selectedTab == index
+                let selectedTint = index == 0
+                    ? theme.palette.primaryAction
+                    : theme.palette.secondaryAccent
 
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -624,9 +642,10 @@ private var shouldUseFullScreenSheets: Bool {
                         .background(
                             Group {
                                 if isSelected {
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(LColors.accentGradient)
-                                        .shadow(color: LColors.gradientPurple.opacity(0.3), radius: 8, y: 4)
+                                    BubblyCardMaterial(
+                                        tint: selectedTint,
+                                        cornerRadius: 10
+                                    )
                                 }
                             }
                         )
@@ -637,10 +656,10 @@ private var shouldUseFullScreenSheets: Bool {
         .padding(4)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(LColors.glassSurface)
+                .fill(theme.palette.surface)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(LColors.glassBorder, lineWidth: 1)
+                        .strokeBorder(theme.palette.raisedSurface, lineWidth: 1)
                 )
         )
     }
@@ -686,13 +705,15 @@ private var shouldUseFullScreenSheets: Bool {
                     } label: {
                         Text("See Less")
                             .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 11)
-                            .background(
-                                Capsule()
-                                    .fill(LGradients.header)
-                            )
+                            .background {
+                                BubblyCardMaterial(
+                                    tint: theme.palette.secondaryAccent,
+                                    cornerRadius: 999
+                                )
+                            }
                     }
                     .buttonStyle(.plain)
                 }
@@ -705,13 +726,15 @@ private var shouldUseFullScreenSheets: Bool {
                     } label: {
                         Text("Load More")
                             .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 11)
-                            .background(
-                                Capsule()
-                                    .fill(LGradients.header)
-                            )
+                            .background {
+                                BubblyCardMaterial(
+                                    tint: theme.palette.primaryAction,
+                                    cornerRadius: 999
+                                )
+                            }
                     }
                     .buttonStyle(.plain)
                 }
@@ -729,10 +752,12 @@ private var shouldUseFullScreenSheets: Bool {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 44, height: 44)
-                .foregroundStyle(LColors.textSecondary.opacity(0.4))
+                .foregroundStyle(theme.palette.textSecondary)
+                .bubblyIconMaterial(tint: theme.palette.textSecondary)
             Text(message)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(LColors.textSecondary.opacity(0.5))
+                .foregroundStyle(theme.palette.textSecondary)
+                .bubblyIconMaterial(tint: theme.palette.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 48)
@@ -760,6 +785,8 @@ private var shouldUseFullScreenSheets: Bool {
 // MARK: - Mood Log Card
 
 struct MoodLogCard: View {
+    @Environment(\.appTheme) private var theme
+
     let entry: MoodEntry
     let onTap: () -> Void
     let onDelete: () -> Void
@@ -786,7 +813,7 @@ struct MoodLogCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            GlassCard(padding: 16) {
+            MoodSurfaceCard(padding: 16) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text(entry.timestamp.formatted(date: .abbreviated, time: .shortened))
@@ -799,35 +826,28 @@ struct MoodLogCard: View {
                             .scaledToFit()
                             .frame(width: 12, height: 12)
                             .foregroundStyle(LColors.textSecondary.opacity(0.5))
+                            .bubblyIconMaterial(tint: LColors.textSecondary.opacity(0.5))
                     }
 
                     if !displayEmotions.isEmpty {
                         FlowLayout(spacing: 5) {
                             ForEach(displayEmotions.prefix(6)) { emotion in
-                                let colors = emotion.category.bubbleColors
                                 Text(emotion.name)
                                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 5)
-                                    .background(
-                                        Capsule()
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [
-                                                        Color(lunixiaHex: colors.Color1).opacity(0.82),
-                                                        Color(lunixiaHex: colors.Color2).opacity(0.65)
-                                                    ],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                            )
-                                    )
+                                    .background {
+                                        BubblyCardMaterial(
+                                            tint: theme.palette.primaryAction,
+                                            cornerRadius: 999
+                                        )
+                                    }
                             }
                             if displayEmotions.count > 6 {
                                 Text("+\(displayEmotions.count - 6)")
                                     .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .foregroundStyle(LColors.textSecondary)
+                                    .foregroundStyle(LColors.textSecondary.opacity(0.5))
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 5)
                                     .background(Capsule().fill(LColors.glassSurface2))
@@ -850,12 +870,19 @@ struct MoodLogCard: View {
                                             .font(.system(size: 13, weight: .semibold))
                                     }
                                 }
-                                .foregroundStyle(LColors.textSecondary.opacity(0.7))
+                                .foregroundStyle(.white)
+                                .frame(width: 26, height: 26)
+                                .background {
+                                    BubblyCardMaterial(
+                                        tint: theme.palette.secondaryAccent,
+                                        cornerRadius: 8
+                                    )
+                                }
                             }
                             if displayActivities.count > 8 {
                                 Text("+\(displayActivities.count - 8)")
                                     .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .foregroundStyle(LColors.textSecondary.opacity(0.5))
+                                    .foregroundStyle(LColors.textSecondary)
                             }
                         }
                     }
@@ -877,5 +904,27 @@ struct MoodLogCard: View {
                 Label("Delete", image: "trash")
             }
         }
+    }
+}
+
+private struct MoodSurfaceCard<Content: View>: View {
+    @Environment(\.appTheme) private var theme
+
+    var cornerRadius: CGFloat = 24
+    var padding: CGFloat = LSpacing.cardPadding
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content
+            .padding(padding)
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(theme.palette.surface)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .strokeBorder(theme.palette.raisedSurface, lineWidth: 1)
+                    }
+            }
+            .shadow(color: theme.palette.background.opacity(0.34), radius: 14, y: 8)
     }
 }

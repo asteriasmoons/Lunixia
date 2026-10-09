@@ -6,6 +6,8 @@
 import SwiftUI
 
 struct HoroscopeView: View {
+    @Environment(\.appTheme) private var theme
+
     @Binding var selectedTab: HoroscopeTab
     @Binding var selectedSign: String
 
@@ -50,11 +52,12 @@ private extension HoroscopeView {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 22, height: 22)
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(theme.palette.secondaryAccent)
+                .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
 
             Text("Daily Horoscope")
                 .font(.system(size: 20, weight: .black, design: .rounded))
-                .foregroundStyle(LGradients.header)
+                .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
 
             Spacer()
         }
@@ -250,7 +253,10 @@ private extension HoroscopeView {
                 Spacer()
             }
             .padding(.vertical, 14)
-            .background(LGradients.header)
+            .background {
+                BubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                    .clipShape(Capsule())
+            }
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -269,7 +275,8 @@ private extension HoroscopeView {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 22, height: 22)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.palette.secondaryAccent)
+                    .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
 
                 Text(horoscope.sign.capitalized)
 

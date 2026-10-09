@@ -9,6 +9,7 @@ import SwiftData
 struct MoodLogSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
     @EnvironmentObject private var storeManager: LunixiaStoreManager
 
     // 0 = emotions, 1 = activities, 2 = note
@@ -44,9 +45,17 @@ struct MoodLogSheet: View {
         }
     }
 
+    private var forwardButtonTint: Color {
+        switch page {
+        case 0: return theme.palette.primaryAction
+        case 1: return theme.palette.secondaryAccent
+        default: return theme.palette.indicators
+        }
+    }
+
     var body: some View {
         ZStack {
-            LunixiaBackground()
+            theme.palette.background
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -55,7 +64,7 @@ struct MoodLogSheet: View {
                 HStack {
                     Text(pageTitle)
                         .font(.system(size: 17, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
 
                     Spacer()
 
@@ -65,7 +74,8 @@ struct MoodLogSheet: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }
                     .buttonStyle(.plain)
                 }
@@ -184,11 +194,12 @@ struct MoodLogSheet: View {
                             .padding(.horizontal, 28)
                             .padding(.vertical, 14)
                             .frame(maxWidth: page > 0 ? .infinity : nil)
-                            .background(
-                                RoundedRectangle(cornerRadius: LSpacing.buttonRadius, style: .continuous)
-                                    .fill(LColors.accentGradient)
-                                    .shadow(color: LColors.gradientPurple.opacity(0.35), radius: 12, y: 6)
-                            )
+                            .background {
+                                BubblyCardMaterial(
+                                    tint: forwardButtonTint,
+                                    cornerRadius: LSpacing.buttonRadius
+                                )
+                            }
                             .opacity((page == 0 && selectedEmotions.isEmpty) || (page == 2 && isLockedByLimit) ? 0.4 : 1)
                         }
                         .buttonStyle(.plain)
@@ -232,7 +243,8 @@ struct MoodLogSheet: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 16, height: 16)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.primaryAction)
+                        .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     Text("note")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(LColors.textSecondary)
@@ -245,17 +257,10 @@ struct MoodLogSheet: View {
                     .padding(18)
                     .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(LColors.glassSurface)
+                            .fill(theme.palette.surface)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .strokeBorder(
-                                        LinearGradient(
-                                            colors: [LColors.gradientBlue, LColors.gradientPurple],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 1.35
-                                    )
+                                    .strokeBorder(theme.palette.secondaryAccent, lineWidth: 1.35)
                             )
                     )
 
@@ -280,26 +285,16 @@ struct MoodLogSheet: View {
     private var selectedEmotionPills: some View {
         FlowLayout(spacing: 6) {
             ForEach(selectedEmotions) { emotion in
-                let colors = emotion.category.bubbleColors
                 Text(emotion.name)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(
+                    .background {
                         Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color(lunixiaHex: colors.Color1),
-                                        Color(lunixiaHex: colors.Color2)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .opacity(0.85)
-                    )
+                            .fill(theme.palette.textPrimary)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
+                    }
                     .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
         }
@@ -327,11 +322,11 @@ struct MoodLogSheet: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(
+                .background {
                     Capsule()
-                        .fill(LColors.accentGradient)
-                        .opacity(0.85)
-                )
+                        .fill(theme.palette.textPrimary)
+                        .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                }
                 .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
         }

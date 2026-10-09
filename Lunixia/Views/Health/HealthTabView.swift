@@ -11,6 +11,7 @@ import Combine
 struct HealthTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.appTheme) private var theme
     @EnvironmentObject private var storeManager: LunixiaStoreManager
     @Query(sort: \VitalsEntry.timestamp, order: .reverse) private var vitalsEntries: [VitalsEntry]
     @Query(sort: \ExerciseEntry.timestamp, order: .reverse) private var exerciseEntries: [ExerciseEntry]
@@ -194,7 +195,7 @@ private var shouldUseFullScreenSheets: Bool {
                     HStack {
                         Text("Health")
                             .font(.system(size: 28, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(LColors.textPrimary)
                         Spacer()
                         Button {
                             ensureGoalsExist()
@@ -205,7 +206,8 @@ private var shouldUseFullScreenSheets: Bool {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 24, height: 24)
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                         }
                         .buttonStyle(.plain)
                     }
@@ -351,21 +353,33 @@ private var shouldUseFullScreenSheets: Bool {
     private var bodyEmotionalStateCard: some View {
         GlassCard {
             VStack(alignment: .leading, spacing: 12) {
-                cardLabel(icon: "heartfill", text: "Body & Emotional State")
+                HStack(spacing: 9) {
+                    Image("heartfill")
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 22, height: 22)
+                        .foregroundStyle(theme.palette.primaryAction)
+                        .bubblyIconMaterial(tint: theme.palette.primaryAction)
+
+                    Text("Body & Emotional State")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(LColors.textSecondary)
+                }
 
                 HStack(alignment: .top, spacing: 12) {
                     stateTile(
                         title: "Body State",
                         state: bodyState.title,
                         message: bodyState.message,
-                        accent: bodyStateAccent
+                        accent: theme.palette.primaryAction
                     )
 
                     stateTile(
                         title: "Emotional State",
                         state: emotionalState.title,
                         message: emotionalState.message,
-                        accent: emotionalStateAccent
+                        accent: theme.palette.secondaryAccent
                     )
                 }
 
@@ -375,14 +389,6 @@ private var shouldUseFullScreenSheets: Bool {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-    }
-
-    private var bodyStateAccent: Color {
-        Color(lunixiaHex: "#4388C5")
-    }
-
-    private var emotionalStateAccent: Color {
-        Color(lunixiaHex: "#6111b8")
     }
 
     private var bodyState: HealthStateInfo {
@@ -457,7 +463,7 @@ private var shouldUseFullScreenSheets: Bool {
             Text(state)
                 .font(.system(size: 15, weight: .black, design: .rounded))
                 .foregroundStyle(accent)
-                .shadow(color: accent.opacity(0.22), radius: 4, y: 1)
+                .bubblyIconMaterial(tint: accent)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
 
@@ -473,27 +479,13 @@ private var shouldUseFullScreenSheets: Bool {
         .padding(.top, 10)
         .padding(.bottom, 7)
         .background {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(LColors.glassSurface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    accent.opacity(0.055),
-                                    accent.opacity(0.026),
-                                    Color.white.opacity(0.018)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                )
+            GlassTile(
+                cornerRadius: 16,
+                borderColor: accent
+            ) {
+                Color.clear
+            }
         }
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(LColors.glassBorder.opacity(0.65), lineWidth: 1)
-        )
     }
 
     // MARK: - Vitals Card
@@ -502,7 +494,19 @@ private var shouldUseFullScreenSheets: Bool {
         GlassCard(padding: 18) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    cardLabel(icon: "scope", text: "Vitals")
+                    HStack(spacing: 9) {
+                        Image("scope")
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 22, height: 22)
+                            .foregroundStyle(theme.palette.secondaryAccent)
+                            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
+
+                        Text("Vitals")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundStyle(LColors.textSecondary)
+                    }
                     Spacer()
                     HStack(spacing: 10) {
                         if !visibleVitalsEntries.isEmpty {
@@ -515,6 +519,7 @@ private var shouldUseFullScreenSheets: Bool {
                                     .scaledToFit()
                                     .frame(width: 16, height: 16)
                                     .foregroundStyle(LColors.textSecondary)
+                                    .bubblyIconMaterial(tint: LColors.textSecondary)
                             }
                             .buttonStyle(.plain)
                         }
@@ -530,7 +535,16 @@ private var shouldUseFullScreenSheets: Bool {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 18, height: 18)
-                                .foregroundStyle(canCreateVitalsEntry ? LGradients.header : LinearGradient(colors: [LColors.textSecondary.opacity(0.45)], startPoint: .top, endPoint: .bottom))
+                                .foregroundStyle(
+                                    canCreateVitalsEntry
+                                    ? AnyShapeStyle(theme.palette.secondaryAccent)
+                                    : AnyShapeStyle(LColors.textSecondary.opacity(0.45))
+                                )
+                                .bubblyIconMaterial(
+                                    tint: canCreateVitalsEntry
+                                    ? theme.palette.secondaryAccent
+                                    : LColors.textSecondary.opacity(0.45)
+                                )
                         }
                         .buttonStyle(.plain)
                     }
@@ -563,7 +577,19 @@ private var shouldUseFullScreenSheets: Bool {
         GlassCard(padding: 18) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    cardLabel(icon: "dumbbell", text: "Exercise")
+                    HStack(spacing: 9) {
+                        Image("dumbbell")
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 22, height: 22)
+                            .foregroundStyle(theme.palette.indicators)
+                            .bubblyIconMaterial(tint: theme.palette.indicators)
+
+                        Text("Exercise")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundStyle(LColors.textSecondary)
+                    }
                     Spacer()
                     HStack(spacing: 10) {
                         if visibleExerciseEntries.count > 0 {
@@ -576,6 +602,7 @@ private var shouldUseFullScreenSheets: Bool {
                                     .scaledToFit()
                                     .frame(width: 16, height: 16)
                                     .foregroundStyle(LColors.textSecondary)
+                                    .bubblyIconMaterial(tint: LColors.textSecondary)
                             }
                             .buttonStyle(.plain)
                         }
@@ -591,7 +618,16 @@ private var shouldUseFullScreenSheets: Bool {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 18, height: 18)
-                                .foregroundStyle(canCreateExerciseLog ? LGradients.header : LinearGradient(colors: [LColors.textSecondary.opacity(0.45)], startPoint: .top, endPoint: .bottom))
+                                .foregroundStyle(
+                                    canCreateExerciseLog
+                                    ? AnyShapeStyle(theme.palette.indicators)
+                                    : AnyShapeStyle(LColors.textSecondary.opacity(0.45))
+                                )
+                                .bubblyIconMaterial(
+                                    tint: canCreateExerciseLog
+                                    ? theme.palette.indicators
+                                    : LColors.textSecondary.opacity(0.45)
+                                )
                         }
                         .buttonStyle(.plain)
                     }
@@ -618,10 +654,13 @@ private var shouldUseFullScreenSheets: Bool {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(LColors.glassSurface)
-                            )
+                            .background {
+                                GlassTile(
+                                    borderColor: theme.palette.indicators
+                                ) {
+                                    Color.clear
+                                }
+                            }
                         }
                         if todayExercises.count > 3 {
                             Text("+\(todayExercises.count - 3) more")
@@ -640,32 +679,32 @@ private var shouldUseFullScreenSheets: Bool {
         GlassCard(padding: 18) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    cardLabel(icon: "bottle", text: "Water")
+                    HStack(spacing: 9) {
+                        Image("bottle")
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 22, height: 22)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
+                        Text("Water")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundStyle(LColors.textSecondary)
+                    }
                     Spacer()
                     HStack(spacing: 10) {
                         if hasWaterHistory {
-                            Button {
-                                showWaterHistory = true
-                            } label: {
+                            Button { showWaterHistory = true } label: {
                                 Image("clockfill")
                                     .renderingMode(.template)
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 16, height: 16)
                                     .foregroundStyle(LColors.textSecondary)
+                                    .bubblyIconMaterial(tint: LColors.textSecondary)
                             }
                             .buttonStyle(.plain)
                         }
-
-                        Button { showWaterLog = true } label: {
-                            Image("addwavy")
-                                .renderingMode(.template)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 18, height: 18)
-                                .foregroundStyle(LGradients.header)
-                        }
-                        .buttonStyle(.plain)
                     }
                 }
 
@@ -675,14 +714,18 @@ private var shouldUseFullScreenSheets: Bool {
                     HStack {
                         Text(String(format: "%.0f oz", todayWaterOz))
                             .font(.system(size: 22, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                         Text("/ \(Int(currentGoals.dailyWaterOz)) oz goal")
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .foregroundStyle(LColors.textSecondary)
                             .padding(.top, 4)
                     }
 
-                    DottedHorizontalProgressBar(progress: progress)
+                    DottedHorizontalProgressBar(
+                        progress: progress,
+                        tint: theme.palette.primaryAction
+                    )
                 }
 
                 // Custom water controls
@@ -735,7 +778,18 @@ private var shouldUseFullScreenSheets: Bool {
         GlassCard(padding: 18) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    cardLabel(icon: "shoe", text: "Steps")
+                    HStack(spacing: 9) {
+                        Image("shoe")
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 22, height: 22)
+                            .foregroundStyle(theme.palette.secondaryAccent)
+                            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                        Text("Steps")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundStyle(LColors.textSecondary)
+                    }
                     Spacer()
                     if hasStepsHistory {
                         Button {
@@ -747,6 +801,7 @@ private var shouldUseFullScreenSheets: Bool {
                                 .scaledToFit()
                                 .frame(width: 16, height: 16)
                                 .foregroundStyle(LColors.textSecondary)
+                                .bubblyIconMaterial(tint: LColors.textSecondary)
                         }
                         .buttonStyle(.plain)
                     }
@@ -758,14 +813,18 @@ private var shouldUseFullScreenSheets: Bool {
                     HStack {
                         Text("\(todaySteps)")
                             .font(.system(size: 22, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.secondaryAccent)
+                            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                         Text("/ \(currentGoals.dailySteps) goal")
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .foregroundStyle(LColors.textSecondary)
                             .padding(.top, 4)
                     }
 
-                    DottedHorizontalProgressBar(progress: progress)
+                    DottedHorizontalProgressBar(
+                        progress: progress,
+                        tint: theme.palette.secondaryAccent
+                    )
 
                     Text(stepsSubtitle(steps: todaySteps, goal: currentGoals.dailySteps))
                         .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -778,39 +837,34 @@ private var shouldUseFullScreenSheets: Bool {
     // MARK: - Medications Entry Card
 
     private var medicationsEntryCard: some View {
-        topNavigationCard(icon: "doublepills", title: "Medications")
+        topNavigationCard(
+            icon: "doublepills",
+            title: "Medications",
+            tint: theme.palette.primaryAction
+        )
     }
 
     // MARK: - Symptom Logger Entry Card
 
     private var symptomLoggerEntryCard: some View {
-        topNavigationCard(icon: "medhouse", title: "Symptom Log")
+        topNavigationCard(
+            icon: "medhouse",
+            title: "Symptom Log",
+            tint: theme.palette.secondaryAccent
+        )
     }
 
-    private func topNavigationCard(icon: String, title: String) -> some View {
+    private func topNavigationCard(icon: String, title: String, tint: Color) -> some View {
         GlassCard(padding: 8) {
             VStack(spacing: 7) {
-                ZStack {
-                    Circle()
-                        .fill(LColors.glassSurface2)
-                        .overlay(
-                            Circle()
-                                .strokeBorder(LColors.glassBorder.opacity(0.85), lineWidth: 1)
-                        )
-                        .overlay(
-                            Circle()
-                                .strokeBorder(LGradients.header, lineWidth: 1)
-                                .opacity(0.35)
-                        )
-
-                    Image(icon)
-                        .renderingMode(.template)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 32, height: 32)
-                        .foregroundStyle(LGradients.header)
-                }
-                .frame(width: 42, height: 42)
+                Image(icon)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 32, height: 32)
+                    .foregroundStyle(tint)
+                    .bubblyIconMaterial(tint: tint)
+                    .frame(width: 42, height: 42)
 
                 Text(title)
                     .font(.system(size: 13, weight: .heavy, design: .rounded))
@@ -982,7 +1036,7 @@ private var shouldUseFullScreenSheets: Bool {
     }
 
     @ViewBuilder
-    private func DottedHorizontalProgressBar(progress: Double) -> some View {
+    private func DottedHorizontalProgressBar(progress: Double, tint: Color) -> some View {
         let clampedProgress = min(max(progress, 0), 1)
         let dotCount = 34
         let activeDots = Int((clampedProgress * Double(dotCount)).rounded(.up))
@@ -990,19 +1044,13 @@ private var shouldUseFullScreenSheets: Bool {
         HStack(spacing: 4) {
             ForEach(0..<dotCount, id: \.self) { index in
                 let isActive = index < activeDots
+                let dotTint = isActive ? tint : LColors.glassSurface2
 
                 Capsule(style: .continuous)
-                    .fill(
-                        isActive
-                        ? AnyShapeStyle(LColors.accentGradient)
-                        : AnyShapeStyle(LColors.glassSurface2)
-                    )
+                    .fill(dotTint)
                     .frame(height: 8)
                     .frame(maxWidth: .infinity)
-                    .shadow(
-                        color: isActive ? LColors.gradientBlue.opacity(0.28) : .clear,
-                        radius: isActive ? 2 : 0
-                    )
+                    .bubblyIconMaterial(tint: dotTint)
             }
         }
         .frame(height: 8)
@@ -1024,10 +1072,11 @@ private var shouldUseFullScreenSheets: Bool {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
-            .background(
+            .background {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(LColors.accentGradient)
-            )
+                    .fill(theme.palette.primaryAction)
+                    .bubblyIconMaterial(tint: theme.palette.primaryAction)
+            }
         }
         .buttonStyle(.plain)
     }
@@ -1058,10 +1107,11 @@ private var shouldUseFullScreenSheets: Bool {
                     .frame(width: 14, height: 14)
                     .foregroundStyle(.white)
                     .frame(width: 30, height: 30)
-                    .background(
+                    .background {
                         Circle()
-                            .fill(LColors.accentGradient)
-                    )
+                            .fill(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
+                    }
             }
             .buttonStyle(.plain)
         }
@@ -1106,10 +1156,13 @@ private var shouldUseFullScreenSheets: Bool {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(LColors.glassSurface)
-        )
+        .background {
+            GlassTile(
+                borderColor: theme.palette.secondaryAccent
+            ) {
+                Color.clear
+            }
+        }
     }
 
     @ViewBuilder
@@ -1124,10 +1177,13 @@ private var shouldUseFullScreenSheets: Bool {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.white.opacity(0.08))
-        )
+        .background {
+            GlassTile(
+                borderColor: theme.palette.indicators
+            ) {
+                Color.clear
+            }
+        }
     }
 
     private func exerciseDurationDisplay(_ minutes: Int) -> String {
@@ -1600,7 +1656,7 @@ struct WaterGoalCelebrationOverlay: View {
                 VStack(spacing: 10) {
                     Text("Water Goal Reached")
                         .font(.system(size: 28, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
 
                     Text("You hydrated like a legend today.")
                         .font(.system(size: 14, weight: .bold, design: .rounded))

@@ -10,6 +10,7 @@ struct VitalsLogSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var storeManager: LunixiaStoreManager
+    @Environment(\.appTheme) private var theme
 
     @State private var bloodOxygen: String = ""
     @State private var systolic: String = ""
@@ -41,21 +42,22 @@ struct VitalsLogSheet: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
+                    Text("Log Vitals")
+                        .font(.system(size: 20, weight: .black, design: .rounded))
+                        .foregroundStyle(LColors.textPrimary)
+
+                    Spacer()
+
                     Button { dismiss() } label: {
                         Image("xmarkwavy")
                             .renderingMode(.template)
                             .resizable()
                             .scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }
                     .buttonStyle(.plain)
-                    Spacer()
-                    Text("Log Vitals")
-                        .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
-                    Spacer()
-                    Color.clear.frame(width: 22, height: 22)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
@@ -63,12 +65,12 @@ struct VitalsLogSheet: View {
 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 14) {
-                        vitalsField(label: "Blood Oxygen", unit: "%", placeholder: "e.g. 98", text: $bloodOxygen, keyboardType: .decimalPad)
-                        vitalsField(label: "Systolic", unit: "mmHg", placeholder: "e.g. 120", text: $systolic, keyboardType: .numberPad)
-                        vitalsField(label: "Diastolic", unit: "mmHg", placeholder: "e.g. 80", text: $diastolic, keyboardType: .numberPad)
-                        vitalsField(label: "BPM", unit: "bpm", placeholder: "e.g. 72", text: $bpm, keyboardType: .numberPad)
-                        vitalsField(label: "Body Temp", unit: "°F", placeholder: "e.g. 98.6", text: $bodyTemp, keyboardType: .decimalPad)
-                        vitalsField(label: "Weight", unit: "lbs", placeholder: "e.g. 145", text: $weight, keyboardType: .decimalPad)
+                        vitalsField(label: "Blood Oxygen", unit: "%", placeholder: "e.g. 98", text: $bloodOxygen, keyboardType: .decimalPad, borderColor: theme.palette.primaryAction)
+                        vitalsField(label: "Systolic", unit: "mmHg", placeholder: "e.g. 120", text: $systolic, keyboardType: .numberPad, borderColor: theme.palette.secondaryAccent)
+                        vitalsField(label: "Diastolic", unit: "mmHg", placeholder: "e.g. 80", text: $diastolic, keyboardType: .numberPad, borderColor: theme.palette.indicators)
+                        vitalsField(label: "BPM", unit: "bpm", placeholder: "e.g. 72", text: $bpm, keyboardType: .numberPad, borderColor: theme.palette.primaryAction)
+                        vitalsField(label: "Body Temp", unit: "°F", placeholder: "e.g. 98.6", text: $bodyTemp, keyboardType: .decimalPad, borderColor: theme.palette.secondaryAccent)
+                        vitalsField(label: "Weight", unit: "lbs", placeholder: "e.g. 145", text: $weight, keyboardType: .decimalPad, borderColor: theme.palette.indicators)
                     }
                     .padding(.horizontal, 20)
                 }
@@ -87,13 +89,15 @@ struct VitalsLogSheet: View {
                                 .font(.system(size: 15, weight: .bold, design: .rounded))
                         }
                         .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.75), radius: 2, x: 0, y: 1)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: LSpacing.buttonRadius, style: .continuous)
-                                .fill(LColors.accentGradient)
-                                .shadow(color: LColors.gradientPurple.opacity(0.35), radius: 12, y: 6)
-                        )
+                        .background {
+                            BubblyCardMaterial(
+                                tint: theme.palette.primaryAction,
+                                cornerRadius: LSpacing.buttonRadius
+                            )
+                        }
                         .opacity(isLockedByLimit ? 0.4 : 1)
                     }
                     .buttonStyle(.plain)
@@ -119,7 +123,7 @@ struct VitalsLogSheet: View {
     }
 
     @ViewBuilder
-    private func vitalsField(label: String, unit: String, placeholder: String, text: Binding<String>, keyboardType: UIKeyboardType) -> some View {
+    private func vitalsField(label: String, unit: String, placeholder: String, text: Binding<String>, keyboardType: UIKeyboardType, borderColor: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
                 .font(.system(size: 12, weight: .bold, design: .rounded))
@@ -142,14 +146,7 @@ struct VitalsLogSheet: View {
                     .fill(LColors.glassSurface)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [LColors.gradientBlue, LColors.gradientPurple],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1.35
-                            )
+                            .strokeBorder(borderColor, lineWidth: 1.35)
                     )
             )
         }
@@ -178,4 +175,3 @@ struct VitalsLogSheet: View {
         dismiss()
     }
 }
-

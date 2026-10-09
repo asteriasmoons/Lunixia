@@ -396,6 +396,8 @@ struct LunixiaSubmittedReportsView: View {
             return "chatstar"
         case "Feature Request":
             return "brightbulb"
+        case "Bug Report":
+            return "bug"
         default:
             return "document"
         }
@@ -457,6 +459,11 @@ struct LunixiaSubmittedReportDetailView: View {
                     accentColor: theme.palette.secondaryAccent
                 ) {
                     showConversation = true
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .strokeBorder(theme.palette.secondaryAccent, lineWidth: 1)
+                        .allowsHitTesting(false)
                 }
                 reportDetails
                 attachmentsSection
@@ -534,49 +541,49 @@ struct LunixiaSubmittedReportDetailView: View {
 
         return VStack(alignment: .leading, spacing: LSpacing.sectionGap) {
             LazyVGrid(columns: columns, spacing: 12) {
-                metadataTile(label: "Submitted", value: report.submittedAt.formatted(date: .abbreviated, time: .omitted), accentIndex: 0)
-                metadataTile(label: "Report ID", value: report.reportID, accentIndex: 1)
-                metadataTile(label: "Area", value: report.category, accentIndex: 2)
-                metadataTile(label: "Feature Type", value: displayFeatureType, accentIndex: 3)
-                metadataTile(label: "Importance", value: report.featureImportance, accentIndex: 4)
-                metadataTile(label: "Who Is This For?", value: report.intendedAudience, accentIndex: 5)
-                metadataTile(label: "Where Should It Live?", value: report.desiredLocation, accentIndex: 6)
-                metadataTile(label: "Saved Data", value: report.requiresSavedData, accentIndex: 7)
-                metadataTile(label: "Notifications", value: report.needsNotifications, accentIndex: 8)
-                metadataTile(label: "Sharing", value: report.needsSharing, accentIndex: 9)
-                metadataTile(label: "AI", value: report.needsAI, accentIndex: 10)
+                metadataTile(label: "Submitted", value: report.submittedAt.formatted(date: .abbreviated, time: .omitted), accentIndex: 0, usesCardMaterial: true)
+                metadataTile(label: "Report ID", value: report.reportID, accentIndex: 1, usesCardMaterial: true)
+                metadataTile(label: "Area", value: report.category, accentIndex: 2, usesCardMaterial: true)
+                metadataTile(label: "Feature Type", value: displayFeatureType, accentIndex: 3, usesCardMaterial: true)
+                metadataTile(label: "Importance", value: report.featureImportance, accentIndex: 4, usesCardMaterial: true)
+                metadataTile(label: "Who Is This For?", value: report.intendedAudience, accentIndex: 5, usesCardMaterial: true)
+                metadataTile(label: "Where Should It Live?", value: report.desiredLocation, accentIndex: 6, usesCardMaterial: true)
+                metadataTile(label: "Saved Data", value: report.requiresSavedData, accentIndex: 7, usesCardMaterial: true)
+                metadataTile(label: "Notifications", value: report.needsNotifications, accentIndex: 8, usesCardMaterial: true)
+                metadataTile(label: "Sharing", value: report.needsSharing, accentIndex: 9, usesCardMaterial: true)
+                metadataTile(label: "AI", value: report.needsAI, accentIndex: 10, usesCardMaterial: true)
             }
 
-            reportTextSection(title: "What Should the Feature Do?", text: report.featureDescription, accentIndex: 0)
-            reportTextSection(title: "How Should It Work?", text: report.imaginedWorkflow, accentIndex: 1)
+            reportTextSection(title: "What Should the Feature Do?", text: report.featureDescription, accentIndex: 0, borderAccentIndex: 0)
+            reportTextSection(title: "How Should It Work?", text: report.imaginedWorkflow, accentIndex: 1, borderAccentIndex: 1)
             if hasRelatedFeature {
-                reportTextSection(title: "Related Existing Feature", text: report.relatedExistingFeature, accentIndex: 2)
+                reportTextSection(title: "Related Existing Feature", text: report.relatedExistingFeature, accentIndex: 2, borderAccentIndex: 2)
             }
-            reportTextSection(title: "Problem or Limitation", text: report.problemAddressed, accentIndex: problemIndex)
-            reportTextSection(title: "Desired Result", text: report.desiredResult, accentIndex: desiredIndex)
+            reportTextSection(title: "Problem or Limitation", text: report.problemAddressed, accentIndex: problemIndex, borderAccentIndex: problemIndex)
+            reportTextSection(title: "Desired Result", text: report.desiredResult, accentIndex: desiredIndex, borderAccentIndex: desiredIndex)
             if hasAdditionalDetails {
-                reportTextSection(title: "Additional Details", text: report.additionalDetails, accentIndex: additionalIndex)
+                reportTextSection(title: "Additional Details", text: report.additionalDetails, accentIndex: additionalIndex, borderAccentIndex: additionalIndex)
             }
-            diagnosticsSection(headerColor: rotationColor(diagnosticsIndex), usesBubblyTiles: true)
+            diagnosticsSection(headerColor: rotationColor(diagnosticsIndex), usesBubblyTiles: true, usesCardMaterial: true)
         }
     }
 
     private var betaFeedbackDetails: some View {
         VStack(alignment: .leading, spacing: LSpacing.sectionGap) {
             LazyVGrid(columns: columns, spacing: 12) {
-                metadataTile(label: "Submitted", value: report.submittedAt.formatted(date: .abbreviated, time: .omitted), accentIndex: 0)
-                metadataTile(label: "Report Type", value: report.reportType, accentIndex: 1)
-                metadataTile(label: "Area", value: report.category, accentIndex: 2)
-                metadataTile(label: "Experience", value: report.overallExperience, accentIndex: 3)
-                metadataTile(label: "Report ID", value: report.reportID, accentIndex: 4)
+                metadataTile(label: "Submitted", value: report.submittedAt.formatted(date: .abbreviated, time: .omitted), accentIndex: 0, usesCardMaterial: true)
+                metadataTile(label: "Report Type", value: report.reportType, accentIndex: 1, usesCardMaterial: true)
+                metadataTile(label: "Area", value: report.category, accentIndex: 2, usesCardMaterial: true)
+                metadataTile(label: "Experience", value: report.overallExperience, accentIndex: 3, usesCardMaterial: true)
+                metadataTile(label: "Report ID", value: report.reportID, accentIndex: 4, usesCardMaterial: true)
             }
 
-            reportTextSection(title: "What Did You Test?", text: report.testedWhat, accentIndex: 0)
-            reportTextSection(title: "What Worked Well?", text: report.workedWell, accentIndex: 1)
-            reportTextSection(title: "What Could Be Better?", text: report.couldBeBetter, accentIndex: 2)
-            reportTextSection(title: "Anything Unexpected?", text: report.unexpected, accentIndex: 3)
-            reportTextSection(title: "Additional Thoughts", text: report.additionalNotes, accentIndex: 4)
-            diagnosticsSection(headerColor: rotationColor(5), usesBubblyTiles: true)
+            reportTextSection(title: "What Did You Test?", text: report.testedWhat, accentIndex: 0, borderAccentIndex: 0)
+            reportTextSection(title: "What Worked Well?", text: report.workedWell, accentIndex: 1, borderAccentIndex: 1)
+            reportTextSection(title: "What Could Be Better?", text: report.couldBeBetter, accentIndex: 2, borderAccentIndex: 2)
+            reportTextSection(title: "Anything Unexpected?", text: report.unexpected, accentIndex: 3, borderAccentIndex: 3)
+            reportTextSection(title: "Additional Thoughts", text: report.additionalNotes, accentIndex: 4, borderAccentIndex: 4)
+            diagnosticsSection(headerColor: rotationColor(5), usesBubblyTiles: true, usesCardMaterial: true)
         }
     }
 
@@ -585,21 +592,21 @@ struct LunixiaSubmittedReportDetailView: View {
 
         return VStack(alignment: .leading, spacing: LSpacing.sectionGap) {
             LazyVGrid(columns: columns, spacing: 12) {
-                metadataTile(label: "Submitted", value: report.submittedAt.formatted(date: .abbreviated, time: .omitted), accentIndex: 0)
-                metadataTile(label: "Status", value: report.status, accentIndex: 1)
-                metadataTile(label: "Area", value: report.category, accentIndex: 2)
-                metadataTile(label: "Severity", value: report.severity, accentIndex: 3)
-                metadataTile(label: "Frequency", value: report.frequency, accentIndex: 4)
-                metadataTile(label: "Report ID", value: report.reportID, accentIndex: 5)
+                metadataTile(label: "Submitted", value: report.submittedAt.formatted(date: .abbreviated, time: .omitted), accentIndex: 0, usesCardMaterial: true)
+                metadataTile(label: "Status", value: report.status, accentIndex: 1, usesCardMaterial: true)
+                metadataTile(label: "Area", value: report.category, accentIndex: 2, usesCardMaterial: true)
+                metadataTile(label: "Severity", value: report.severity, accentIndex: 3, usesCardMaterial: true)
+                metadataTile(label: "Frequency", value: report.frequency, accentIndex: 4, usesCardMaterial: true)
+                metadataTile(label: "Report ID", value: report.reportID, accentIndex: 5, usesCardMaterial: true)
             }
 
-            reportTextSection(title: "What Happened", text: report.descriptionText, headerColor: theme.palette.primaryAction, borderColor: theme.palette.secondaryAccent, bubblyHeader: true)
-            reportTextSection(title: "Expected Behavior", text: report.expectedBehavior, headerColor: theme.palette.primaryAction, borderColor: theme.palette.secondaryAccent, bubblyHeader: true)
+            reportTextSection(title: "What Happened", text: report.descriptionText, accentIndex: 0, borderAccentIndex: 0)
+            reportTextSection(title: "Expected Behavior", text: report.expectedBehavior, accentIndex: 1, borderAccentIndex: 1)
 
             if !report.steps.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
-                    LunixiaReportSectionHeader(title: "Steps to Reproduce", color: theme.palette.primaryAction, bubbly: true)
-                    GlassCard(cornerRadius: 22, borderColor: theme.palette.secondaryAccent) {
+                    LunixiaReportSectionHeader(title: "Steps to Reproduce", color: theme.palette.indicators, bubbly: true)
+                    GlassCard(cornerRadius: 22, borderColor: theme.palette.indicators) {
                         VStack(alignment: .leading, spacing: 12) {
                             ForEach(report.steps.indices, id: \.self) { index in
                                 HStack(alignment: .center, spacing: 12) {
@@ -608,7 +615,7 @@ struct LunixiaSubmittedReportDetailView: View {
                                         .foregroundStyle(LColors.textPrimary)
                                         .frame(width: 28, height: 28)
                                         .background {
-                                            BubblyIconMaterial(tint: theme.palette.primaryAction)
+                                            BubblyIconMaterial(tint: theme.palette.indicators)
                                                 .clipShape(Circle())
                                         }
                                     Text(report.steps[index])
@@ -620,11 +627,15 @@ struct LunixiaSubmittedReportDetailView: View {
                             }
                         }
                     }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .strokeBorder(theme.palette.indicators, lineWidth: 1)
+                    }
                 }
             }
 
-            reportTextSection(title: "Additional Notes", text: report.additionalNotes, accentIndex: additionalNotesIndex)
-            diagnosticsSection(headerColor: rotationColor(additionalNotesIndex + 1), usesBubblyTiles: true)
+            reportTextSection(title: "Additional Notes", text: report.additionalNotes, accentIndex: additionalNotesIndex, borderAccentIndex: additionalNotesIndex)
+            diagnosticsSection(headerColor: rotationColor(additionalNotesIndex + 1), usesBubblyTiles: true, usesCardMaterial: true)
         }
     }
 
@@ -650,16 +661,20 @@ struct LunixiaSubmittedReportDetailView: View {
         }
     }
 
-    private func diagnosticsSection(headerColor: Color? = nil, usesBubblyTiles: Bool = false) -> some View {
+    private func diagnosticsSection(
+        headerColor: Color? = nil,
+        usesBubblyTiles: Bool = false,
+        usesCardMaterial: Bool = false
+    ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             LunixiaReportSectionHeader(title: "Diagnostics", color: headerColor, bubbly: usesBubblyTiles)
             LazyVGrid(columns: columns, spacing: 12) {
-                metadataTile(label: "App", value: report.appName, accentIndex: usesBubblyTiles ? 0 : nil)
-                metadataTile(label: "Version", value: report.appVersion, accentIndex: usesBubblyTiles ? 1 : nil)
-                metadataTile(label: "Build", value: report.buildNumber, accentIndex: usesBubblyTiles ? 2 : nil)
-                metadataTile(label: "Device", value: report.deviceModel, accentIndex: usesBubblyTiles ? 3 : nil)
-                metadataTile(label: "iOS", value: report.iOSVersion, accentIndex: usesBubblyTiles ? 4 : nil)
-                metadataTile(label: "Screen", value: displayScreenName, accentIndex: usesBubblyTiles ? 5 : nil)
+                metadataTile(label: "App", value: report.appName, accentIndex: usesBubblyTiles ? 0 : nil, usesCardMaterial: usesCardMaterial)
+                metadataTile(label: "Version", value: report.appVersion, accentIndex: usesBubblyTiles ? 1 : nil, usesCardMaterial: usesCardMaterial)
+                metadataTile(label: "Build", value: report.buildNumber, accentIndex: usesBubblyTiles ? 2 : nil, usesCardMaterial: usesCardMaterial)
+                metadataTile(label: "Device", value: report.deviceModel, accentIndex: usesBubblyTiles ? 3 : nil, usesCardMaterial: usesCardMaterial)
+                metadataTile(label: "iOS", value: report.iOSVersion, accentIndex: usesBubblyTiles ? 4 : nil, usesCardMaterial: usesCardMaterial)
+                metadataTile(label: "Screen", value: displayScreenName, accentIndex: usesBubblyTiles ? 5 : nil, usesCardMaterial: usesCardMaterial)
             }
         }
     }
@@ -698,7 +713,12 @@ struct LunixiaSubmittedReportDetailView: View {
     }
 
     @ViewBuilder
-    private func metadataTile(label: String, value: String, accentIndex: Int? = nil) -> some View {
+    private func metadataTile(
+        label: String,
+        value: String,
+        accentIndex: Int? = nil,
+        usesCardMaterial: Bool = false
+    ) -> some View {
         let content = VStack(alignment: .leading, spacing: 6) {
             Text(label.uppercased())
                 .font(.system(size: 10, weight: .black, design: .rounded))
@@ -716,12 +736,19 @@ struct LunixiaSubmittedReportDetailView: View {
         if let accentIndex {
             content
                 .background {
-                    BubblyTileSurface(
-                        tint: theme.palette.rotation[accentIndex % theme.palette.rotation.count],
-                        cornerRadius: 18
-                    )
+                    if usesCardMaterial {
+                        BubblyCardMaterial(
+                            tint: theme.palette.rotation[accentIndex % theme.palette.rotation.count],
+                            cornerRadius: 18
+                        )
+                    } else {
+                        BubblyTileSurface(
+                            tint: theme.palette.rotation[accentIndex % theme.palette.rotation.count],
+                            cornerRadius: 18
+                        )
+                    }
                 }
-                .bubblyTileLift()
+                .bubblyTileLift(isEnabled: !usesCardMaterial)
         } else {
             GlassCard(cornerRadius: 18, padding: 0) { content }
         }
@@ -733,10 +760,13 @@ struct LunixiaSubmittedReportDetailView: View {
         headerColor: Color? = nil,
         borderColor: Color? = nil,
         bubblyHeader: Bool = false,
-        accentIndex: Int? = nil
+        accentIndex: Int? = nil,
+        borderAccentIndex: Int? = nil
     ) -> some View {
         let resolvedHeaderColor = accentIndex.map { rotationColor($0) } ?? headerColor
-        let resolvedBorderColor = accentIndex.map { rotationColor($0 + 1) } ?? borderColor
+        let resolvedBorderColor = borderAccentIndex.map { rotationColor($0) }
+            ?? accentIndex.map { rotationColor($0 + 1) }
+            ?? borderColor
 
         return VStack(alignment: .leading, spacing: 12) {
             LunixiaReportSectionHeader(title: title, color: resolvedHeaderColor, bubbly: bubblyHeader || accentIndex != nil)
@@ -746,6 +776,12 @@ struct LunixiaSubmittedReportDetailView: View {
                     .foregroundStyle(text.trimmed.isEmpty ? LColors.textSecondary : LColors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .overlay {
+                if borderAccentIndex != nil, let resolvedBorderColor {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(resolvedBorderColor, lineWidth: 1)
+                }
             }
         }
     }
@@ -913,6 +949,12 @@ struct LunixiaReportInfoCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .overlay {
+            if let borderColor {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(borderColor, lineWidth: 1)
+            }
+        }
     }
 }
 
@@ -989,6 +1031,7 @@ struct LunixiaReportPickerField: View {
     let options: [String]
     @Binding var selection: String
     var bubblyTint: Color? = nil
+    var usesCardMaterial = false
     var textShadow = false
     @State private var isExpanded = false
 
@@ -1044,7 +1087,11 @@ struct LunixiaReportPickerField: View {
                     .frame(height: dropdownHeight)
                     .background {
                         if let bubblyTint {
-                            BubblyTileSurface(tint: bubblyTint, cornerRadius: 14)
+                            if usesCardMaterial {
+                                BubblyCardMaterial(tint: bubblyTint, cornerRadius: 14)
+                            } else {
+                                BubblyTileSurface(tint: bubblyTint, cornerRadius: 14)
+                            }
                         } else {
                             RoundedRectangle(cornerRadius: 14, style: .continuous).fill(LColors.iconContainer.primary)
                         }
@@ -1080,7 +1127,11 @@ struct LunixiaReportPickerField: View {
         .padding(.vertical, 11)
         .background {
             if let bubblyTint {
-                BubblyTileSurface(tint: bubblyTint, cornerRadius: 14)
+                if usesCardMaterial {
+                    BubblyCardMaterial(tint: bubblyTint, cornerRadius: 14)
+                } else {
+                    BubblyTileSurface(tint: bubblyTint, cornerRadius: 14)
+                }
             } else {
                 RoundedRectangle(cornerRadius: 14, style: .continuous).fill(LColors.iconContainer.primary)
             }
@@ -1090,6 +1141,7 @@ struct LunixiaReportPickerField: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(LColors.accents.contrast, lineWidth: 1.15)
             }
         }
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var dropdownRowHeight: CGFloat { 42 }
@@ -1224,6 +1276,12 @@ struct LunixiaReportAttachmentsPicker: View {
                             .foregroundStyle(LColors.textSecondary)
                     }
                 }
+                .overlay {
+                    if let accentColor {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(accentColor, lineWidth: 1)
+                    }
+                }
             }
             .buttonStyle(.plain)
         }
@@ -1283,6 +1341,7 @@ struct LunixiaReportSubmitButton: View {
     let canSubmit: Bool
     let isSubmitting: Bool
     var bubblyTint: Color? = nil
+    var usesCardMaterial = false
     let action: () -> Void
 
     var body: some View {
@@ -1307,7 +1366,11 @@ struct LunixiaReportSubmitButton: View {
             .padding(.vertical, 15)
             .background {
                 if let bubblyTint {
-                    BubblyTileSurface(tint: bubblyTint, cornerRadius: LSpacing.buttonRadius)
+                    if usesCardMaterial {
+                        BubblyCardMaterial(tint: bubblyTint, cornerRadius: LSpacing.buttonRadius)
+                    } else {
+                        BubblyTileSurface(tint: bubblyTint, cornerRadius: LSpacing.buttonRadius)
+                    }
                 } else {
                     RoundedRectangle(cornerRadius: LSpacing.buttonRadius, style: .continuous).fill(LGradients.header)
                 }

@@ -179,7 +179,7 @@ struct MoodStatsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Mood Stats")
                     .font(.system(size: 32, weight: .black, design: .rounded))
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(LColors.textPrimary)
 
                 Text("Explore how your phone behavior may connect with your emotional patterns.")
                     .font(.system(size: 15, weight: .medium, design: .rounded))

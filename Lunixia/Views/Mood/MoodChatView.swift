@@ -66,7 +66,7 @@ struct MoodChatView: View {
 
             Text("Talk it out")
                 .font(.system(size: 18, weight: .black, design: .rounded))
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(LColors.textPrimary)
 
             Spacer()
 
@@ -185,12 +185,8 @@ struct MoodChatView: View {
                             Circle()
                                 .fill(
                                     canSend
-                                    ? LColors.accentGradient
-                                    : LinearGradient(
-                                        colors: [LColors.glassSurface2, LColors.glassSurface2],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
+                                    ? AnyShapeStyle(LColors.accentGradient)
+                                    : AnyShapeStyle(LColors.glassSurface2)
                                 )
                         )
                 }

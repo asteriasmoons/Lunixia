@@ -41,7 +41,7 @@ struct PremiumView: View {
 
                         Text("Lunixia Premium")
                             .font(.system(size: 30, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(LColors.textPrimary)
 
                         Text("Unlock your full emotional sanctuary.")
                             .font(.system(size: 15, weight: .medium, design: .rounded))

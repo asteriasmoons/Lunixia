@@ -10,6 +10,7 @@ struct ExerciseLogSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var storeManager: LunixiaStoreManager
+    @Environment(\.appTheme) private var theme
 
     @State private var name: String = ""
     @State private var duration: String = ""
@@ -45,30 +46,31 @@ struct ExerciseLogSheet: View {
 
                 // Header
                 HStack {
+                    Text("Log Exercise")
+                        .font(.system(size: 20, weight: .black, design: .rounded))
+                        .foregroundStyle(LColors.textPrimary)
+
+                    Spacer()
+
                     Button { dismiss() } label: {
                         Image("xmarkwavy")
                             .renderingMode(.template)
                             .resizable()
                             .scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }
                     .buttonStyle(.plain)
-                    Spacer()
-                    Text("Log Exercise")
-                        .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
-                    Spacer()
-                    Color.clear.frame(width: 22, height: 22)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
                 .padding(.bottom, 24)
 
                 VStack(spacing: 14) {
-                    exerciseField(label: "Exercise Name", placeholder: "e.g. Bench Press", text: $name, keyboardType: .default)
-                    exerciseField(label: "Duration (minutes)", placeholder: "e.g. 30", text: $duration, keyboardType: .numberPad)
-                    exerciseField(label: "Reps", placeholder: "e.g. 12", text: $reps, keyboardType: .numberPad)
+                    exerciseField(label: "Exercise Name", placeholder: "e.g. Bench Press", text: $name, keyboardType: .default, borderColor: theme.palette.primaryAction)
+                    exerciseField(label: "Duration (minutes)", placeholder: "e.g. 30", text: $duration, keyboardType: .numberPad, borderColor: theme.palette.secondaryAccent)
+                    exerciseField(label: "Reps", placeholder: "e.g. 12", text: $reps, keyboardType: .numberPad, borderColor: theme.palette.indicators)
                 }
                 .padding(.horizontal, 20)
 
@@ -88,13 +90,15 @@ struct ExerciseLogSheet: View {
                                 .font(.system(size: 15, weight: .bold, design: .rounded))
                         }
                         .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.75), radius: 2, x: 0, y: 1)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: LSpacing.buttonRadius, style: .continuous)
-                                .fill(LColors.accentGradient)
-                                .shadow(color: LColors.gradientPurple.opacity(0.35), radius: 12, y: 6)
-                        )
+                        .background {
+                            BubblyCardMaterial(
+                                tint: theme.palette.primaryAction,
+                                cornerRadius: LSpacing.buttonRadius
+                            )
+                        }
                         .opacity(canSave ? 1 : 0.4)
                     }
                     .buttonStyle(.plain)
@@ -120,7 +124,7 @@ struct ExerciseLogSheet: View {
     }
 
     @ViewBuilder
-    private func exerciseField(label: String, placeholder: String, text: Binding<String>, keyboardType: UIKeyboardType) -> some View {
+    private func exerciseField(label: String, placeholder: String, text: Binding<String>, keyboardType: UIKeyboardType, borderColor: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
                 .font(.system(size: 12, weight: .bold, design: .rounded))
@@ -137,14 +141,7 @@ struct ExerciseLogSheet: View {
                         .fill(LColors.glassSurface)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [LColors.gradientBlue, LColors.gradientPurple],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1.35
-                                )
+                                .strokeBorder(borderColor, lineWidth: 1.35)
                         )
                 )
         }

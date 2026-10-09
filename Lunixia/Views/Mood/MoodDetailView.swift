@@ -8,6 +8,7 @@ import SwiftUI
 struct MoodDetailView: View {
     let entry: MoodEntry
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
     @EnvironmentObject private var appState: AppState
 
     @State private var showInsights = false
@@ -32,7 +33,7 @@ struct MoodDetailView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Mood Log")
                                 .font(.system(size: 26, weight: .black, design: .rounded))
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(LColors.textPrimary)
                             Text(entry.timestamp.formatted(date: .complete, time: .shortened))
                                 .font(.system(size: 13, weight: .medium, design: .rounded))
                                 .foregroundStyle(LColors.textSecondary)
@@ -44,7 +45,8 @@ struct MoodDetailView: View {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 22, height: 22)
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                         }
                         .buttonStyle(.plain)
                     }
@@ -64,14 +66,13 @@ struct MoodDetailView: View {
                                     .font(.system(size: 13, weight: .bold, design: .rounded))
                             }
                             .foregroundStyle(.white)
+                            .shadow(color: .black, radius: 2, y: 1)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 9)
-                            .background(
-                                Capsule().fill(LGradients.blue.opacity(0.22))
-                            )
-                            .overlay(
-                                Capsule().strokeBorder(LGradients.blue.opacity(0.55), lineWidth: 1)
-                            )
+                            .background {
+                                BubblyIconMaterial(tint: theme.palette.primaryAction)
+                                    .clipShape(Capsule())
+                            }
                         }
                         .buttonStyle(.plain)
 
@@ -85,15 +86,14 @@ struct MoodDetailView: View {
                                 Text("History")
                                     .font(.system(size: 13, weight: .bold, design: .rounded))
                             }
-                            .foregroundStyle(LColors.textSecondary)
+                            .foregroundStyle(theme.palette.textSecondary)
+                            .shadow(color: .black, radius: 2, y: 1)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 9)
-                            .background(
-                                Capsule().fill(Color.white.opacity(0.06))
-                            )
-                            .overlay(
-                                Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
-                            )
+                            .background {
+                                BubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                                    .clipShape(Capsule())
+                            }
                         }
                         .buttonStyle(.plain)
 
@@ -105,29 +105,26 @@ struct MoodDetailView: View {
                     if !entry.resolvedEmotions.isEmpty {
                         GlassCard(padding: 18) {
                             VStack(alignment: .leading, spacing: 12) {
-                                sectionLabel(icon: "xsmile", isCustom: true, text: "Inner Weather")
+                                sectionLabel(
+                                    icon: "xsmile",
+                                    isCustom: true,
+                                    text: "Inner Weather",
+                                    tint: theme.palette.primaryAction
+                                )
 
                                 FlowLayout(spacing: 7) {
                                     ForEach(entry.resolvedEmotions) { emotion in
-                                        let colors = emotion.category.bubbleColors
+                                        let tint = emotionTint(for: emotion.category)
                                         Text(emotion.name)
                                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                                             .foregroundStyle(.white)
+                                            .shadow(color: .black, radius: 2, y: 1)
                                             .padding(.horizontal, 13)
                                             .padding(.vertical, 7)
-                                            .background(
-                                                Capsule()
-                                                    .fill(
-                                                        LinearGradient(
-                                                            colors: [
-                                                                Color(lunixiaHex: colors.Color1).opacity(0.85),
-                                                                Color(lunixiaHex: colors.Color2).opacity(0.7)
-                                                            ],
-                                                            startPoint: .topLeading,
-                                                            endPoint: .bottomTrailing
-                                                        )
-                                                    )
-                                            )
+                                            .background {
+                                                BubblyIconMaterial(tint: tint)
+                                                    .clipShape(Capsule())
+                                            }
                                     }
                                 }
                             }
@@ -139,7 +136,12 @@ struct MoodDetailView: View {
                     if !entry.resolvedActivities.isEmpty {
                         GlassCard(padding: 18) {
                             VStack(alignment: .leading, spacing: 12) {
-                                sectionLabel(icon: "sparkle", isCustom: true, text: "Activities")
+                                sectionLabel(
+                                    icon: "sparkle",
+                                    isCustom: true,
+                                    text: "Activities",
+                                    tint: theme.palette.secondaryAccent
+                                )
 
                                 FlowLayout(spacing: 7) {
                                     ForEach(entry.resolvedActivities) { activity in
@@ -158,12 +160,13 @@ struct MoodDetailView: View {
                                                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                                         }
                                         .foregroundStyle(.white)
+                                        .shadow(color: .black, radius: 2, y: 1)
                                         .padding(.horizontal, 13)
                                         .padding(.vertical, 7)
-                                        .background(
-                                            Capsule()
-                                                .fill(LColors.accentGradient.opacity(0.8))
-                                        )
+                                        .background {
+                                            BubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                                                .clipShape(Capsule())
+                                        }
                                     }
                                 }
                             }
@@ -174,7 +177,12 @@ struct MoodDetailView: View {
                     // MARK: Attachments card
                     GlassCard(padding: 18) {
                         VStack(alignment: .leading, spacing: 14) {
-                            sectionLabel(icon: "balancewavy", isCustom: true, text: "Lifestyle")
+                            sectionLabel(
+                                icon: "balancewavy",
+                                isCustom: true,
+                                text: "Lifestyle",
+                                tint: theme.palette.indicators
+                            )
 
                             LazyVGrid(columns: [
                                 GridItem(.flexible()),
@@ -201,7 +209,12 @@ struct MoodDetailView: View {
                     if !entry.note.isEmpty {
                         GlassCard(padding: 18) {
                             VStack(alignment: .leading, spacing: 10) {
-                                sectionLabel(icon: "writenote", isCustom: true, text: "Note")
+                                sectionLabel(
+                                    icon: "writenote",
+                                    isCustom: true,
+                                    text: "Note",
+                                    tint: theme.palette.primaryAction
+                                )
                                 Text(entry.note)
                                     .font(.system(size: 14, weight: .regular, design: .rounded))
                                     .foregroundStyle(LColors.textPrimary.opacity(0.88))
@@ -255,7 +268,12 @@ struct MoodDetailView: View {
     // MARK: Helpers
 
     @ViewBuilder
-    private func sectionLabel(icon: String, isCustom: Bool, text: String) -> some View {
+    private func sectionLabel(
+        icon: String,
+        isCustom: Bool,
+        text: String,
+        tint: Color
+    ) -> some View {
         HStack(spacing: 7) {
             if isCustom {
                 Image(icon)
@@ -263,11 +281,13 @@ struct MoodDetailView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 20, height: 20)
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(tint)
+                    .bubblyIconMaterial(tint: tint)
             } else {
                 Image(systemName: icon)
                     .font(.system(size: 19, weight: .bold))
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(tint)
+                    .bubblyIconMaterial(tint: tint)
             }
             Text(text)
                 .font(.system(size: 18, weight: .black, design: .rounded))
@@ -289,11 +309,13 @@ struct MoodDetailView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 19, height: 19)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.indicators)
+                        .bubblyIconMaterial(tint: theme.palette.indicators)
                 } else {
                     Image(systemName: icon)
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.indicators)
+                        .bubblyIconMaterial(tint: theme.palette.indicators)
                 }
             }
 
@@ -306,5 +328,16 @@ struct MoodDetailView: View {
                 .foregroundStyle(value == "--" ? LColors.textSecondary.opacity(0.35) : LColors.textPrimary)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func emotionTint(for category: MoodEmotionCategory) -> Color {
+        switch category {
+        case .positive:
+            return theme.palette.primaryAction
+        case .neutral:
+            return theme.palette.secondaryAccent
+        case .negative:
+            return theme.palette.indicators
+        }
     }
 }

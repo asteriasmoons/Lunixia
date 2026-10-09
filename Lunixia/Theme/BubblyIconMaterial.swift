@@ -16,20 +16,21 @@ struct BubblyIconMaterial: View {
         GeometryReader { geo in
             let w = geo.size.width
             let h = geo.size.height
+            let materialTint = tint.opacity(0.75)
 
             ZStack {
-                tint.opacity(0.86)
+                materialTint
 
                 if #available(iOS 26.0, *) {
                     Rectangle()
-                        .fill(tint.opacity(0.16))
-                        .glassEffect(.regular.tint(tint.opacity(0.34)), in: Rectangle())
+                        .fill(materialTint)
+                        .glassEffect(.regular.tint(materialTint), in: Rectangle())
                 }
 
                 RadialGradient(
                     colors: [
-                        theme.palette.textPrimary.opacity(0.48),
-                        theme.palette.textPrimary.opacity(0.16),
+                        theme.palette.textPrimary.opacity(0.408),
+                        theme.palette.textPrimary.opacity(0.136),
                         Color.clear
                     ],
                     center: UnitPoint(x: 0.22, y: 0.18),
@@ -40,8 +41,8 @@ struct BubblyIconMaterial: View {
 
                 LinearGradient(
                     colors: [
-                        theme.palette.textPrimary.opacity(0.34),
-                        theme.palette.textPrimary.opacity(0.10),
+                        theme.palette.textPrimary.opacity(0.289),
+                        theme.palette.textPrimary.opacity(0.085),
                         Color.clear
                     ],
                     startPoint: .topLeading,
@@ -52,7 +53,7 @@ struct BubblyIconMaterial: View {
                 LinearGradient(
                     colors: [
                         Color.clear,
-                        tint.opacity(0.16),
+                        materialTint,
                         theme.palette.background.opacity(0.18)
                     ],
                     startPoint: .top,
@@ -66,20 +67,31 @@ struct BubblyIconMaterial: View {
     }
 }
 
-extension View {
-    func bubblyIconMaterial(tint: Color) -> some View {
-        foregroundStyle(.clear)
+private struct BubblyIconMaterialModifier: ViewModifier {
+    let tint: Color
+
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(.clear)
             .overlay {
                 BubblyIconMaterial(tint: tint)
-                    .mask { self }
+                    .mask {
+                        content
+                    }
                     .allowsHitTesting(false)
             }
+    }
+}
+
+extension View {
+    func bubblyIconMaterial(tint: Color) -> some View {
+        modifier(BubblyIconMaterialModifier(tint: tint))
     }
 
     @ViewBuilder
     func bubblyIconMaterial(tint: Color, isEnabled: Bool) -> some View {
         if isEnabled {
-            bubblyIconMaterial(tint: tint)
+            modifier(BubblyIconMaterialModifier(tint: tint))
         } else {
             self
         }

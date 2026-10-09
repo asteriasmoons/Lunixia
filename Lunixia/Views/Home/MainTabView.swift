@@ -13,6 +13,7 @@ enum LunixiaTab: CaseIterable {
     case notes
     case spiritual
     case selfCarePoints
+    case wellnessChallenges
 
     static let primaryTabs: [LunixiaTab] = [
         .mood,
@@ -24,7 +25,8 @@ enum LunixiaTab: CaseIterable {
     static let overflowTabs: [LunixiaTab] = [
         .notes,
         .spiritual,
-        .selfCarePoints
+        .selfCarePoints,
+        .wellnessChallenges
     ]
 
     var icon: String {
@@ -49,6 +51,9 @@ enum LunixiaTab: CaseIterable {
 
         case .selfCarePoints:
             return "heartwavy"
+
+        case .wellnessChallenges:
+            return "heartsparkle"
         }
     }
 
@@ -74,6 +79,9 @@ enum LunixiaTab: CaseIterable {
 
         case .selfCarePoints:
             return "Self-Care Points"
+
+        case .wellnessChallenges:
+            return "Wellness Challenges"
         }
     }
 }
@@ -122,6 +130,9 @@ struct MainTabView: View {
 
         case .selfCarePoints:
             SelfCarePointsView()
+
+        case .wellnessChallenges:
+            WellnessChallengesView()
         }
     }
 }
@@ -129,6 +140,7 @@ struct MainTabView: View {
 // MARK: - Floating Tab Bar
 
     struct FloatingTabBar: View {
+        @Environment(\.appTheme) private var theme
         @Binding var selectedTab: LunixiaTab
 
         @State private var showMoreTabs = false
@@ -180,6 +192,9 @@ struct MainTabView: View {
                         GlassCard(cornerRadius: 999, padding: 0) {
                             Color.clear
                         }
+
+                        Capsule(style: .continuous)
+                            .strokeBorder(theme.palette.primaryAction, lineWidth: 1)
                     }
                 }
                 .padding(.horizontal, 18)
@@ -190,6 +205,7 @@ struct MainTabView: View {
 
         private func tabButton(_ tab: LunixiaTab) -> some View {
             let isSelected = selectedTab == tab
+            let selectedTint = selectionTint(for: tab)
 
             return Button {
                 withAnimation(.spring(duration: 0.3, bounce: 0.2)) {
@@ -200,7 +216,8 @@ struct MainTabView: View {
                 ZStack {
                     if isSelected {
                         Circle()
-                            .fill(LGradients.header.opacity(0.22))
+                            .fill(selectedTint)
+                            .bubblyIconMaterial(tint: selectedTint)
                             .frame(width: 34, height: 34)
                     }
 
@@ -211,7 +228,7 @@ struct MainTabView: View {
                         .frame(width: 22, height: 22)
                         .foregroundStyle(
                             isSelected
-                            ? AnyShapeStyle(LGradients.header)
+                            ? AnyShapeStyle(LColors.bg)
                             : AnyShapeStyle(Color.white.opacity(0.4))
                         )
                 }
@@ -229,9 +246,9 @@ struct MainTabView: View {
             } label: {
                 ZStack {
                     Circle()
-                        .fill(LGradients.header)
+                        .fill(theme.palette.secondaryAccent)
+                        .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                         .frame(width: 44, height: 44)
-                        .shadow(color: LColors.gradientBlue.opacity(0.35), radius: 10, x: 0, y: 5)
 
                     Image("addwavy")
                         .renderingMode(.template)
@@ -249,6 +266,21 @@ struct MainTabView: View {
             .opacity(overflowTabs.isEmpty ? 0.45 : 1)
         }
 
+        private func selectionTint(for tab: LunixiaTab) -> Color {
+            guard let index = LunixiaTab.allCases.firstIndex(of: tab) else {
+                return theme.palette.primaryAction
+            }
+
+            switch index % 3 {
+            case 0:
+                return theme.palette.primaryAction
+            case 1:
+                return theme.palette.secondaryAccent
+            default:
+                return theme.palette.indicators
+            }
+        }
+
         private var moreTabsMenu: some View {
             CurvedDock(
                 tabs: overflowTabs,
@@ -261,6 +293,7 @@ struct MainTabView: View {
     // MARK: - Curved Dock
 
     private struct CurvedDock: View {
+        @Environment(\.appTheme) private var theme
 
         let tabs: [LunixiaTab]
         @Binding var selectedTab: LunixiaTab
@@ -330,6 +363,7 @@ struct MainTabView: View {
 
         private func dockButton(_ tab: LunixiaTab) -> some View {
             let isSelected = selectedTab == tab
+            let selectedTint = selectionTint(for: tab)
 
             return Button {
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
@@ -344,7 +378,7 @@ struct MainTabView: View {
                     .frame(width: 19, height: 19)
                     .foregroundStyle(
                         isSelected
-                        ? AnyShapeStyle(LGradients.header)
+                        ? AnyShapeStyle(LColors.bg)
                         : AnyShapeStyle(LColors.textSecondary)
                     )
                     .frame(width: itemSize, height: itemSize)
@@ -352,22 +386,30 @@ struct MainTabView: View {
                         Circle()
                             .fill(LColors.bg)
                             .overlay(
-                                Circle()
-                                    .fill(isSelected ? LColors.glassSurface2 : LColors.glassSurface)
+                                Group {
+                                    if isSelected {
+                                        Circle()
+                                            .fill(selectedTint)
+                                            .bubblyIconMaterial(tint: selectedTint)
+                                    } else {
+                                        Circle()
+                                            .fill(LColors.glassSurface)
+                                    }
+                                }
                             )
                     }
                     .overlay(
                         Circle()
                             .strokeBorder(
                                 isSelected
-                                ? AnyShapeStyle(LGradients.header)
+                                ? AnyShapeStyle(selectedTint)
                                 : AnyShapeStyle(LColors.glassBorder),
                                 lineWidth: isSelected ? 1.4 : 1
                             )
                     )
                     .shadow(
                         color: isSelected
-                        ? LColors.gradientBlue.opacity(0.4)
+                        ? selectedTint.opacity(0.4)
                         : .black.opacity(0.25),
                         radius: isSelected ? 10 : 6,
                         y: 4
@@ -375,6 +417,21 @@ struct MainTabView: View {
                     .contentShape(Circle())
             }
             .buttonStyle(.plain)
+        }
+
+        private func selectionTint(for tab: LunixiaTab) -> Color {
+            guard let index = LunixiaTab.allCases.firstIndex(of: tab) else {
+                return theme.palette.primaryAction
+            }
+
+            switch index % 3 {
+            case 0:
+                return theme.palette.primaryAction
+            case 1:
+                return theme.palette.secondaryAccent
+            default:
+                return theme.palette.indicators
+            }
         }
     }
 

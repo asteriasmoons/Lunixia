@@ -49,7 +49,7 @@ struct ThemeDetailView: View {
         HStack {
             Text(themeName)
                 .font(.system(size: 22, weight: .black, design: .rounded))
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(LColors.textPrimary)
                 .lineLimit(1)
 
             Spacer()

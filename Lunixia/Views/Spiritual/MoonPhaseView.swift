@@ -31,6 +31,8 @@ struct MoonPhaseView: View {
 // MARK: - Moon Phase Card
 
 private struct MoonPhaseCard: View {
+    @Environment(\.appTheme) private var theme
+
     let data: MoonPhaseData
 
     private var zodiacAssetName: String {
@@ -61,12 +63,13 @@ private struct MoonPhaseCard: View {
                 HStack(alignment: .center, spacing: 8) {
                     Image(systemName: phaseSymbolName)
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.primaryAction)
+                        .bubblyIconMaterial(tint: theme.palette.primaryAction)
                         .frame(width: 18, height: 18)
 
                     Text(data.phaseName)
                         .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .bubblyIconMaterial(tint: theme.palette.primaryAction)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -76,7 +79,8 @@ private struct MoonPhaseCard: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 18, height: 18)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.primaryAction)
+                        .bubblyIconMaterial(tint: theme.palette.primaryAction)
 
                     Text(data.signName)
                         .font(.system(size: 15, weight: .bold, design: .rounded))
@@ -98,6 +102,8 @@ private struct MoonPhaseCard: View {
 // MARK: - AI Insight Sheet
 
 private struct MoonAIInsightSheet: View {
+    @Environment(\.appTheme) private var theme
+
     let moonPhaseData: MoonPhaseData
 
     @State private var response: MoonAIResponse?
@@ -141,12 +147,14 @@ private struct MoonAIInsightSheet: View {
             HStack(alignment: .center, spacing: 10) {
                 Image(systemName: phaseSymbolName)
                     .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.palette.primaryAction)
+                    .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     .frame(width: 22, height: 22)
 
                 Text(moonPhaseData.phaseName)
                     .font(.system(size: 24, weight: .black, design: .rounded))
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(theme.palette.primaryAction)
+                    .bubblyIconMaterial(tint: theme.palette.primaryAction)
 
                 Spacer()
             }
@@ -167,7 +175,8 @@ private struct MoonAIInsightSheet: View {
 
                 Text("Reading the moon’s reflection…")
                     .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(theme.palette.primaryAction)
+                    .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     .multilineTextAlignment(.center)
 
                 Text("Considering what this moon phase, sign, and lunar detail may symbolically mean for spiritual and personal growth.")
@@ -186,7 +195,8 @@ private struct MoonAIInsightSheet: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text(response.title)
                     .font(.system(size: 22, weight: .black, design: .rounded))
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(theme.palette.primaryAction)
+                    .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     .fixedSize(horizontal: false, vertical: true)
 
                 keywordList(response.keywords)
@@ -209,11 +219,13 @@ private struct MoonAIInsightSheet: View {
             VStack(spacing: 16) {
                 Image(systemName: "moon.stars")
                     .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(theme.palette.primaryAction)
+                    .bubblyIconMaterial(tint: theme.palette.primaryAction)
 
                 Text("The moon reflection could not be created.")
                     .font(.system(size: 18, weight: .black, design: .rounded))
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(theme.palette.primaryAction)
+                    .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     .multilineTextAlignment(.center)
 
                 Text(message)
@@ -232,9 +244,9 @@ private struct MoonAIInsightSheet: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
-                        .background(
-                            Capsule()
-                                .fill(LColors.accentGradient)
+                        .bubblyCardMaterial(
+                            tint: theme.palette.primaryAction,
+                            cornerRadius: 22
                         )
                 }
                 .buttonStyle(.plain)
@@ -249,7 +261,8 @@ private struct MoonAIInsightSheet: View {
             ForEach(keywords, id: \.self) { keyword in
                 Text(keyword)
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(theme.palette.primaryAction)
+                    .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -257,7 +270,7 @@ private struct MoonAIInsightSheet: View {
                     .clipShape(Capsule())
                     .overlay(
                         Capsule()
-                            .stroke(LGradients.header, lineWidth: 1)
+                            .stroke(theme.palette.primaryAction, lineWidth: 1)
                     )
             }
         }

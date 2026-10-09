@@ -22,6 +22,7 @@ private struct NoteRenderedContentElement: Identifiable, Equatable {
 
 struct NotesView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.appTheme) private var theme
     @EnvironmentObject private var storeManager: LunixiaStoreManager
 
     @Query(sort: \Note.updatedAt, order: .reverse)
@@ -289,16 +290,9 @@ struct NotesView: View {
 
                 VStack(spacing: 18) {
                     HStack(spacing: 10) {
-                        Image("addtab")
-                            .renderingMode(.template)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
-
                         Text(tabPopupMode == .create ? "New Tab" : "Rename Tab")
                             .font(.system(size: 24, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(LColors.textPrimary)
 
                         Spacer()
 
@@ -310,7 +304,8 @@ struct NotesView: View {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 18, height: 18)
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                         }
                         .buttonStyle(.plain)
                     }
@@ -336,7 +331,7 @@ struct NotesView: View {
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                                    .stroke(theme.palette.primaryAction, lineWidth: 1)
                             )
                         }
                     }
@@ -388,11 +383,12 @@ struct NotesView: View {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 24, height: 24)
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
 
                             Text("List Types")
                                 .font(.system(size: 28, weight: .black, design: .rounded))
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(LColors.textPrimary)
 
                             Spacer()
 
@@ -765,7 +761,7 @@ struct NotesView: View {
                 .frame(width: 44, height: 44)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(LColors.glassBorder, lineWidth: 1)
+                        .stroke(Color.white.opacity(0.46), lineWidth: 1)
                 )
 
             Text(hex.wrappedValue)
@@ -791,7 +787,11 @@ struct NotesView: View {
                     .padding(.vertical, 9)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(draftSelectedListType == type ? AnyShapeStyle(LGradients.header) : AnyShapeStyle(Color.white.opacity(0.12)))
+                            .fill(draftSelectedListType == type ? AnyShapeStyle(theme.palette.primaryAction) : AnyShapeStyle(Color.white.opacity(0.12)))
+                            .bubblyIconMaterial(
+                                tint: theme.palette.primaryAction,
+                                isEnabled: draftSelectedListType == type
+                            )
                             .overlay(Capsule(style: .continuous).stroke(Color.white.opacity(0.22), lineWidth: 1))
                     )
                 }
@@ -1060,7 +1060,7 @@ struct NotesView: View {
         HStack(alignment: .center) {
             Text("Notes")
                 .font(.system(size: 34, weight: .black, design: .rounded))
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(LColors.textPrimary)
 
             Spacer()
 
@@ -1079,7 +1079,8 @@ struct NotesView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 26, height: 26)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.primaryAction)
+                        .bubblyIconMaterial(tint: theme.palette.primaryAction)
                 }
                 .buttonStyle(.plain)
 
@@ -1095,7 +1096,8 @@ struct NotesView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 28, height: 28)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.secondaryAccent)
+                        .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                 }
                 .buttonStyle(.plain)
             }
@@ -1137,10 +1139,12 @@ struct NotesView: View {
                                 Group {
                                     if selectedFilter == filter {
                                         RoundedRectangle(cornerRadius: LSpacing.buttonRadius)
-                                            .fill(AnyShapeStyle(LGradients.header))
+                                            .fill(theme.palette.primaryAction)
+                                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                                     } else {
                                         RoundedRectangle(cornerRadius: LSpacing.buttonRadius)
                                             .fill(LColors.glassSurface)
+                                            .bubblyIconMaterial(tint: LColors.glassSurface)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: LSpacing.buttonRadius)
                                                     .stroke(LColors.glassBorder, lineWidth: 1)
@@ -1358,7 +1362,7 @@ struct NotesView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 16, height: 16)
-                            .foregroundStyle(note.isPinned ? .white : Color.black.opacity(0.38))
+                            .foregroundStyle(.white)
                     }
                 }
                 .buttonStyle(.plain)
@@ -1392,7 +1396,7 @@ struct NotesView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 18, height: 18)
-                            .foregroundStyle(note.isPinned ? .white : Color.black.opacity(0.38))
+                            .foregroundStyle(.white)
                     }
                 }
                 .buttonStyle(.plain)
@@ -1621,7 +1625,7 @@ struct NotesView: View {
                                       : Color.white.opacity(0.08))
                                 .overlay(
                                     Circle()
-                                        .stroke(LColors.glassBorder, lineWidth: 1)
+                                        .stroke(Color.white.opacity(0.46), lineWidth: 1)
                                 )
                                 .frame(width: 34, height: 34)
 
@@ -1661,7 +1665,7 @@ struct NotesView: View {
                             .fill(Color.white.opacity(0.06))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .stroke(LColors.glassBorder, lineWidth: 1)
+                                    .stroke(Color.white.opacity(0.46), lineWidth: 1)
                             )
                     )
                 }
@@ -1759,7 +1763,11 @@ struct NotesView: View {
 	                                    Spacer()
 
 	                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-	                                        .fill(draftUsesGradient ? AnyShapeStyle(LGradients.header) : AnyShapeStyle(Color.white.opacity(0.12)))
+	                                        .fill(draftUsesGradient ? AnyShapeStyle(theme.palette.primaryAction) : AnyShapeStyle(Color.white.opacity(0.12)))
+	                                        .bubblyIconMaterial(
+	                                            tint: theme.palette.primaryAction,
+	                                            isEnabled: draftUsesGradient
+	                                        )
 	                                        .frame(width: 50, height: 28)
 	                                        .overlay(
 	                                            Circle()
@@ -1826,7 +1834,7 @@ struct NotesView: View {
                     }
 
                     Rectangle()
-                        .fill(LColors.glassBorder)
+                        .fill(Color.white.opacity(0.46))
                         .frame(height: 1)
 
                     VStack(alignment: .leading, spacing: 10) {

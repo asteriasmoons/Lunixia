@@ -11,13 +11,14 @@ import SwiftData
 struct SymptomLoggerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.appTheme) private var theme
     @EnvironmentObject private var storeManager: LunixiaStoreManager
     @Query(sort: \LunixiaSymptomLog.date, order: .reverse) private var logs: [LunixiaSymptomLog]
 
     @State private var showLogSheet      = false
-    @State private var showDetailSheet   = false
     @State private var showDeleteConfirm = false
     @State private var selectedLog: LunixiaSymptomLog? = nil
+    @State private var detailLog: LunixiaSymptomLog? = nil
     @State private var editingLog: LunixiaSymptomLog?  = nil
     @State private var showBanner        = false
     @State private var bannerMessage     = ""
@@ -47,6 +48,10 @@ struct SymptomLoggerView: View {
         )
     }
 
+    private var cardTints: [Color] {
+        [theme.palette.primaryAction, theme.palette.secondaryAccent, theme.palette.indicators]
+    }
+
     var body: some View {
         ZStack {
             LunixiaBackground().ignoresSafeArea()
@@ -57,14 +62,15 @@ struct SymptomLoggerView: View {
                 HStack(spacing: 16) {
                     Text("Symptom Log")
                         .font(.system(size: 28, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     Button { dismiss() } label: {
                         Image("xmarkwavy")
                             .renderingMode(.template)
                             .resizable().scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }
                     .buttonStyle(.plain)
                     Button {
@@ -79,7 +85,16 @@ struct SymptomLoggerView: View {
                             .renderingMode(.template)
                             .resizable().scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(canCreateSymptomLog ? LGradients.header : LinearGradient(colors: [LColors.textSecondary.opacity(0.45)], startPoint: .top, endPoint: .bottom))
+                            .foregroundStyle(
+                                canCreateSymptomLog
+                                ? AnyShapeStyle(theme.palette.secondaryAccent)
+                                : AnyShapeStyle(LColors.textSecondary.opacity(0.45))
+                            )
+                            .bubblyIconMaterial(
+                                tint: canCreateSymptomLog
+                                    ? theme.palette.secondaryAccent
+                                    : LColors.textSecondary.opacity(0.45)
+                            )
                     }
                     .buttonStyle(.plain)
                 }
@@ -93,18 +108,30 @@ struct SymptomLoggerView: View {
                         // MARK: Overview card
                         GlassCard(padding: 18) {
                             HStack(spacing: 14) {
-                                overviewStat(label: "Total Logged", value: logs.count)
+                                overviewStat(
+                                    label: "Total Logged",
+                                    value: logs.count,
+                                    tint: theme.palette.primaryAction
+                                )
                                 Rectangle()
                                     .fill(LColors.glassBorder)
                                     .frame(width: 1)
                                     .padding(.vertical, 4)
-                                overviewStat(label: "This Week", value: logsThisWeek)
+                                overviewStat(
+                                    label: "This Week",
+                                    value: logsThisWeek,
+                                    tint: theme.palette.secondaryAccent
+                                )
                                     .overlay {
                                         if !canCreateSymptomLog && !isPremium {
                                             LunixiaPremiumBlurOverlay(cornerRadius: 12)
                                         }
-                                    }
+                                }
                             }
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .strokeBorder(theme.palette.primaryAction, lineWidth: 1)
                         }
                         .padding(.horizontal, 16)
 
@@ -118,8 +145,8 @@ struct SymptomLoggerView: View {
                             }
                             .padding(.horizontal, 16)
                         } else {
-                            ForEach(logs) { log in
-                                logCard(log)
+                            ForEach(Array(logs.enumerated()), id: \.element.id) { index, log in
+                                logCard(log, tint: cardTints[index % cardTints.count])
                                     .padding(.horizontal, 16)
                             }
                         }
@@ -143,19 +170,18 @@ struct SymptomLoggerView: View {
                 saveLog()
             }
         }
-        .sheet(isPresented: $showDetailSheet) {
-            if let log = selectedLog {
-                SymptomDetailSheet(log: log) {
-                    showDetailSheet = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        loadForEdit(log)
-                        showLogSheet = true
-                    }
-                } onDelete: {
-                    showDetailSheet = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        showDeleteConfirm = true
-                    }
+        .sheet(item: $detailLog) { log in
+            SymptomDetailSheet(log: log) {
+                detailLog = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    loadForEdit(log)
+                    showLogSheet = true
+                }
+            } onDelete: {
+                detailLog = nil
+                selectedLog = log
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    showDeleteConfirm = true
                 }
             }
         }
@@ -178,11 +204,12 @@ struct SymptomLoggerView: View {
     // MARK: - Overview stat
 
     @ViewBuilder
-    private func overviewStat(label: String, value: Int) -> some View {
+    private func overviewStat(label: String, value: Int, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("\(value)")
                 .font(.system(size: 26, weight: .black, design: .rounded))
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(tint)
+                .bubblyIconMaterial(tint: tint)
             Text(label)
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(LColors.textSecondary)
@@ -193,7 +220,7 @@ struct SymptomLoggerView: View {
     // MARK: - Log card
 
     @ViewBuilder
-    private func logCard(_ log: LunixiaSymptomLog) -> some View {
+    private func logCard(_ log: LunixiaSymptomLog, tint: Color) -> some View {
         GlassCard(padding: 16) {
             VStack(alignment: .leading, spacing: 12) {
 
@@ -204,7 +231,8 @@ struct SymptomLoggerView: View {
                                 .renderingMode(.template)
                                 .resizable().scaledToFit()
                                 .frame(width: 20, height: 20)
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                             Text(log.date.formatted(date: .abbreviated, time: .shortened))
                                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                                 .foregroundStyle(LColors.textPrimary)
@@ -213,33 +241,32 @@ struct SymptomLoggerView: View {
                         if log.severity > 0, let label = LunixiaSymptomLog.severityLabels[log.severity] {
                             HStack(spacing: 5) {
                                 Circle()
-                                    .fill(symptomSeverityColor(log.severity))
+                                    .fill(Color.white)
                                     .frame(width: 6, height: 6)
                                 Text(label)
                                     .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .foregroundStyle(symptomSeverityColor(log.severity))
+                                    .foregroundStyle(.white)
                             }
                             .padding(.horizontal, 9)
                             .padding(.vertical, 4)
-                            .background(
+                            .background {
                                 Capsule()
-                                    .fill(symptomSeverityColor(log.severity).opacity(0.15))
-                                    .overlay(Capsule().strokeBorder(symptomSeverityColor(log.severity).opacity(0.4), lineWidth: 0.75))
-                            )
+                                    .fill(symptomSeverityColor(log.severity))
+                                    .bubblyIconMaterial(tint: symptomSeverityColor(log.severity))
+                            }
                         }
                     }
 
                     Spacer()
 
                     rowIconButton(asset: "dotswavy") {
-                        selectedLog = log
-                        showDetailSheet = true
+                        detailLog = log
                     }
                     rowIconButton(asset: "pencil") {
                         loadForEdit(log)
                         showLogSheet = true
                     }
-                    rowIconButton(asset: "trash", tint: LColors.gradientPurple.opacity(0.75)) {
+                    rowIconButton(asset: "trash", tint: tint) {
                         selectedLog = log
                         showDeleteConfirm = true
                     }
@@ -262,6 +289,10 @@ struct SymptomLoggerView: View {
                 }
             }
         }
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(tint, lineWidth: 1)
+        }
     }
 
     @ViewBuilder
@@ -281,6 +312,7 @@ struct SymptomLoggerView: View {
                 .renderingMode(.template).resizable().scaledToFit()
                 .frame(width: 15, height: 15)
                 .foregroundStyle(tint)
+                .bubblyIconMaterial(tint: tint)
                 .frame(width: 30, height: 30)
                 .background(LColors.glassSurface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(LColors.glassBorder, lineWidth: 0.75))
@@ -359,6 +391,8 @@ struct SymptomLogSheet: View {
     let onSave: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
+    @State private var symptomsExpanded = false
 
     private var isEditing: Bool { editingLog != nil }
 
@@ -371,56 +405,89 @@ struct SymptomLogSheet: View {
                     HStack {
                         Text(isEditing ? "Edit Entry" : "Log Symptoms")
                             .font(.system(size: 20, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(LColors.textPrimary)
                         Spacer()
                         Button { dismiss() } label: {
                             Image("xmarkwavy")
                                 .renderingMode(.template).resizable().scaledToFit()
                                 .frame(width: 22, height: 22)
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                         }
                         .buttonStyle(.plain)
                     }
 
                     // ── Date ─────────────────────────────────────────────
-                    sheetSection(label: "date") {
-                        DatePicker("", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                            .datePickerStyle(.compact)
-                            .colorScheme(.dark)
-                            .labelsHidden()
-                            .tint(LColors.accent)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
+                    sheetSection(label: "date", showsOuterCard: false) {
+                        HStack(alignment: .top, spacing: 10) {
+                            LunixiaCompactDateDrumPicker(
+                                date: $date,
+                                tint: theme.palette.primaryAction,
+                                usesCardMaterial: true
+                            )
+                            .frame(maxWidth: .infinity)
+
+                            LunixiaCompactTimeDrumPicker(
+                                hour: hourBinding,
+                                minute: minuteBinding,
+                                tint: theme.palette.primaryAction
+                            )
+                            .frame(maxWidth: .infinity)
+                        }
                     }
 
                     // ── Symptoms ──────────────────────────────────────────
-                    sheetSection(label: "symptoms") {
+                    sheetSection(label: "symptoms", showsOuterCard: false) {
                         VStack(alignment: .leading, spacing: 10) {
-                            if !symptoms.isEmpty {
-                                HStack(spacing: 6) {
-                                    Image("checkwavy")
-                                        .renderingMode(.template).resizable().scaledToFit()
-                                        .frame(width: 12, height: 12)
-                                        .foregroundStyle(LGradients.header)
-                                    Text("\(symptoms.count) selected")
-                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(LColors.textSecondary)
+                            Button {
+                                withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+                                    symptomsExpanded.toggle()
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.top, 14)
-                            }
-                            FlowLayout(spacing: 7) {
-                                ForEach(LunixiaSymptomLog.allSymptoms, id: \.self) { symptom in
-                                    symptomChip(symptom)
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Text(symptoms.isEmpty ? "Select symptoms" : "\(symptoms.count) selected")
+                                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                                        .foregroundStyle(.white)
+
+                                    Spacer()
+
+                                    Image(symptomsExpanded ? "chevup" : "chevdown")
+                                        .renderingMode(.template)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 13, height: 13)
+                                        .foregroundStyle(theme.palette.secondaryAccent)
+                                        .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                                 }
+                                .padding(.horizontal, 14)
+                                .frame(height: 44)
+                                .bubblyCardMaterial(
+                                    tint: theme.palette.secondaryAccent,
+                                    cornerRadius: 14
+                                )
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
+                            .buttonStyle(.plain)
+
+                            if symptomsExpanded {
+                                ScrollView(.vertical, showsIndicators: true) {
+                                    LazyVStack(spacing: 0) {
+                                        ForEach(LunixiaSymptomLog.allSymptoms, id: \.self) { symptom in
+                                            symptomOptionRow(symptom)
+                                        }
+                                    }
+                                }
+                                .frame(height: 176)
+                                .bubblyCardMaterial(
+                                    tint: theme.palette.secondaryAccent,
+                                    cornerRadius: 14
+                                )
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
                         }
                     }
 
                     // ── Severity ──────────────────────────────────────────
-                    sheetSection(label: "severity") {
+                    sheetSection(label: "severity", borderColor: theme.palette.indicators) {
                         VStack(spacing: 0) {
                             ForEach(1...5, id: \.self) { level in
                                 severityRow(level: level)
@@ -432,7 +499,7 @@ struct SymptomLogSheet: View {
                     }
 
                     // ── Note ─────────────────────────────────────────────
-                    sheetSection(label: "note (optional)") {
+                    sheetSection(label: "note (optional)", borderColor: theme.palette.primaryAction) {
                         TextField("Add a note...", text: $note, axis: .vertical)
                             .lineLimit(3...6)
                             .textInputAutocapitalization(.sentences)
@@ -452,16 +519,17 @@ struct SymptomLogSheet: View {
                             Image("checkwavy")
                                 .renderingMode(.template).resizable().scaledToFit()
                                 .frame(width: 14, height: 14)
+                                .foregroundStyle(.white)
+                                .bubblyIconMaterial(tint: .white)
                             Text(isEditing ? "Save Changes" : "Log Symptoms")
                                 .font(.system(size: 15, weight: .bold, design: .rounded))
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: LSpacing.buttonRadius, style: .continuous)
-                                .fill(LColors.accentGradient)
-                                .shadow(color: LColors.gradientPurple.opacity(0.35), radius: 12, y: 6)
+                        .bubblyCardMaterial(
+                            tint: theme.palette.secondaryAccent,
+                            cornerRadius: LSpacing.buttonRadius
                         )
                     }
                     .buttonStyle(.plain)
@@ -479,13 +547,30 @@ struct SymptomLogSheet: View {
     }
 
     @ViewBuilder
-    private func sheetSection<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+    private func sheetSection<Content: View>(
+        label: String,
+        borderColor: Color? = nil,
+        showsOuterCard: Bool = true,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label.uppercased())
                 .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(LColors.textSecondary.opacity(0.55))
                 .kerning(1.2)
-            GlassCard(cornerRadius: 14, padding: 0) {
+            if showsOuterCard {
+                GlassCard(cornerRadius: 14, padding: 0) {
+                    VStack(spacing: 0) {
+                        content()
+                    }
+                }
+                .overlay {
+                    if let borderColor {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(borderColor, lineWidth: 1)
+                    }
+                }
+            } else {
                 VStack(spacing: 0) {
                     content()
                 }
@@ -494,25 +579,33 @@ struct SymptomLogSheet: View {
     }
 
     @ViewBuilder
-    private func symptomChip(_ symptom: String) -> some View {
+    private func symptomOptionRow(_ symptom: String) -> some View {
         let selected = symptoms.contains(symptom)
         Button {
             if selected { symptoms.removeAll { $0 == symptom } }
             else        { symptoms.append(symptom) }
         } label: {
-            Text(symptom)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(selected ? Color.white : LColors.textSecondary)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 7)
-                .background(
-                    selected ? AnyShapeStyle(LGradients.header) : AnyShapeStyle(LGradients.blue.opacity(0.08)),
-                    in: Capsule()
-                )
-                .overlay(
-                    Capsule()
-                        .strokeBorder(selected ? AnyShapeStyle(LGradients.header) : AnyShapeStyle(LColors.glassBorder), lineWidth: selected ? 1.1 : 0.75)
-                )
+            HStack(spacing: 10) {
+                Text(symptom)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Spacer()
+
+                if selected {
+                    Image("checkwavy")
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 13, height: 13)
+                        .foregroundStyle(theme.palette.secondaryAccent)
+                        .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 44)
+            .background(Color.white.opacity(selected ? 0.12 : 0.04))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .animation(.spring(response: 0.22, dampingFraction: 0.8), value: selected)
@@ -521,7 +614,6 @@ struct SymptomLogSheet: View {
     @ViewBuilder
     private func severityRow(level: Int) -> some View {
         let selected = severity == level
-        let color = symptomSeverityColor(level)
         let label = LunixiaSymptomLog.severityLabels[level] ?? ""
         Button {
             severity = selected ? 0 : level
@@ -529,6 +621,9 @@ struct SymptomLogSheet: View {
             HStack(spacing: 12) {
                 Circle()
                     .fill(selected ? Color.white : LColors.glassBorder)
+                    .bubblyIconMaterial(
+                        tint: selected ? .white : LColors.glassBorder
+                    )
                     .frame(width: 8, height: 8)
                 Text("\(level)")
                     .font(.system(size: 14, weight: .black, design: .rounded))
@@ -543,16 +638,42 @@ struct SymptomLogSheet: View {
                         .renderingMode(.template).resizable().scaledToFit()
                         .frame(width: 14, height: 14)
                         .foregroundStyle(.white)
+                        .bubblyIconMaterial(tint: .white)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 13)
-            .background(
-                selected ? AnyShapeStyle(LGradients.header) : AnyShapeStyle(Color.clear)
-            )
+            .background {
+                if selected {
+                    BubblyCardMaterial(
+                        tint: theme.palette.indicators,
+                        cornerRadius: 0
+                    )
+                }
+            }
         }
         .buttonStyle(.plain)
         .animation(.spring(response: 0.22, dampingFraction: 0.8), value: selected)
+    }
+
+    private var hourBinding: Binding<Int> {
+        Binding(
+            get: { Calendar.current.component(.hour, from: date) },
+            set: { setDateComponent(.hour, to: $0) }
+        )
+    }
+
+    private var minuteBinding: Binding<Int> {
+        Binding(
+            get: { Calendar.current.component(.minute, from: date) },
+            set: { setDateComponent(.minute, to: $0) }
+        )
+    }
+
+    private func setDateComponent(_ component: Calendar.Component, to value: Int) {
+        let calendar = Calendar.current
+        guard let updated = calendar.date(bySetting: component, value: value, of: date) else { return }
+        date = updated
     }
 }
 
@@ -565,6 +686,7 @@ struct SymptomDetailSheet: View {
     let onEdit: () -> Void
     let onDelete: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         ZStack {
@@ -575,13 +697,14 @@ struct SymptomDetailSheet: View {
                     HStack {
                         Text("Entry Detail")
                             .font(.system(size: 20, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(LColors.textPrimary)
                         Spacer()
                         Button { dismiss() } label: {
                             Image("xmarkwavy")
                                 .renderingMode(.template).resizable().scaledToFit()
                                 .frame(width: 22, height: 22)
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                         }
                         .buttonStyle(.plain)
                     }
@@ -595,7 +718,8 @@ struct SymptomDetailSheet: View {
                                     Image("heartpulse")
                                         .renderingMode(.template).resizable().scaledToFit()
                                         .frame(width: 16, height: 16)
-                                        .foregroundStyle(LGradients.header)
+                                        .foregroundStyle(theme.palette.primaryAction)
+                                        .bubblyIconMaterial(tint: theme.palette.primaryAction)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("SEVERITY")
                                             .font(.system(size: 10, weight: .bold, design: .rounded))
@@ -604,10 +728,12 @@ struct SymptomDetailSheet: View {
                                         HStack(spacing: 6) {
                                             Circle()
                                                 .fill(symptomSeverityColor(log.severity))
+                                                .bubblyIconMaterial(tint: symptomSeverityColor(log.severity))
                                                 .frame(width: 7, height: 7)
                                             Text("\(log.severity) — \(label)")
                                                 .font(.system(size: 14, weight: .bold, design: .rounded))
                                                 .foregroundStyle(symptomSeverityColor(log.severity))
+                                                .bubblyIconMaterial(tint: symptomSeverityColor(log.severity))
                                         }
                                     }
                                 }
@@ -663,6 +789,8 @@ struct SymptomDetailSheet: View {
                                 Image("trash")
                                     .renderingMode(.template).resizable().scaledToFit()
                                     .frame(width: 13, height: 13)
+                                    .foregroundStyle(LColors.danger)
+                                    .bubblyIconMaterial(tint: LColors.danger)
                                 Text("Delete")
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
                             }
@@ -685,16 +813,17 @@ struct SymptomDetailSheet: View {
                                 Image("pencilcircle")
                                     .renderingMode(.template).resizable().scaledToFit()
                                     .frame(width: 13, height: 13)
+                                    .foregroundStyle(.white)
+                                    .bubblyIconMaterial(tint: .white)
                                 Text("Edit Entry")
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(
-                                RoundedRectangle(cornerRadius: LSpacing.buttonRadius, style: .continuous)
-                                    .fill(LColors.accentGradient)
-                                    .shadow(color: LColors.gradientPurple.opacity(0.3), radius: 10, y: 4)
+                            .bubblyCardMaterial(
+                                tint: theme.palette.indicators,
+                                cornerRadius: LSpacing.buttonRadius
                             )
                         }
                         .buttonStyle(.plain)
@@ -714,7 +843,8 @@ struct SymptomDetailSheet: View {
             Image(icon)
                 .renderingMode(.template).resizable().scaledToFit()
                 .frame(width: 16, height: 16)
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(theme.palette.primaryAction)
+                .bubblyIconMaterial(tint: theme.palette.primaryAction)
             VStack(alignment: .leading, spacing: 2) {
                 Text(label.uppercased())
                     .font(.system(size: 10, weight: .bold, design: .rounded))

@@ -57,6 +57,8 @@ struct LunixiaApp: App {
             SubmittedReport.self,
             SubmittedReportAttachment.self,
             StreakConfiguration.self,
+            WellnessChallengeParticipation.self,
+            WellnessExperienceProgress.self,
         ]
 
         let schema = Schema(allModels)

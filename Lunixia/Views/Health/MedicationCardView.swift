@@ -12,6 +12,7 @@ import UserNotifications
 struct MedicationPageView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.appTheme) private var theme
     @EnvironmentObject private var storeManager: LunixiaStoreManager
     @Query(sort: \LunixiaMedication.createdAt, order: .forward) private var medications: [LunixiaMedication]
 
@@ -61,7 +62,7 @@ struct MedicationPageView: View {
                 HStack(spacing: 16) {
                     Text("Medications")
                         .font(.system(size: 28, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     Button { dismiss() } label: {
                         Image("xmarkwavy")
@@ -69,7 +70,8 @@ struct MedicationPageView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.secondaryAccent)
+                            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                     }
                     .buttonStyle(.plain)
                     Button {
@@ -84,7 +86,15 @@ struct MedicationPageView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(canCreateMedicationCard ? LGradients.header : LinearGradient(colors: [LColors.textSecondary.opacity(0.45)], startPoint: .top, endPoint: .bottom))
+                            .foregroundStyle(
+                                canCreateMedicationCard
+                                ? AnyShapeStyle(theme.palette.primaryAction)
+                                : AnyShapeStyle(LColors.textSecondary.opacity(0.45))
+                            )
+                            .bubblyIconMaterial(
+                                tint: theme.palette.primaryAction,
+                                isEnabled: canCreateMedicationCard
+                            )
                     }
                     .buttonStyle(.plain)
                 }
@@ -98,7 +108,11 @@ struct MedicationPageView: View {
                         // MARK: Overview card
                         GlassCard(padding: 18) {
                             HStack(spacing: 14) {
-                                overviewStat(label: "Medications", value: medications.count)
+                                overviewStat(
+                                    label: "Medications",
+                                    value: medications.count,
+                                    tint: theme.palette.primaryAction
+                                )
                                     .overlay {
                                         if !canCreateMedicationCard && !isPremium {
                                             LunixiaPremiumBlurOverlay(cornerRadius: 12)
@@ -108,7 +122,11 @@ struct MedicationPageView: View {
                                     .fill(LColors.glassBorder)
                                     .frame(width: 1)
                                     .padding(.vertical, 4)
-                                overviewStat(label: "Refills (7 days)", value: upcomingRefillCount)
+                                overviewStat(
+                                    label: "Refills (7 days)",
+                                    value: upcomingRefillCount,
+                                    tint: theme.palette.secondaryAccent
+                                )
                             }
                         }
                         .padding(.horizontal, 16)
@@ -332,11 +350,12 @@ struct MedicationPageView: View {
     // MARK: - Overview Stat
 
     @ViewBuilder
-    private func overviewStat(label: String, value: Int) -> some View {
+    private func overviewStat(label: String, value: Int, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("\(value)")
                 .font(.system(size: 26, weight: .black, design: .rounded))
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(tint)
+                .bubblyIconMaterial(tint: tint)
             Text(label)
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(LColors.textSecondary)
@@ -371,22 +390,38 @@ struct MedicationPageView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) {
                             if let refill = med.refillDate {
-                                medPill(text: "REFILL: \(shortRefillDate(refill))", color: LColors.gradientPurple.opacity(0.22))
+                                medPill(
+                                    text: "REFILL: \(shortRefillDate(refill))",
+                                    tint: theme.palette.rotation[0]
+                                )
                             }
 
                             if med.daysSupply > 0 {
-                                medPill(text: "SUPPLY DAYS: \(med.daysSupply)", color: LColors.gradientBlue.opacity(0.16))
+                                let supplyIndex = med.refillDate == nil ? 0 : 1
+                                medPill(
+                                    text: "SUPPLY DAYS: \(med.daysSupply)",
+                                    tint: theme.palette.rotation[supplyIndex]
+                                )
                             }
                         }
 
                         if med.notifyDose || med.autoDecreaseEnabled {
                             HStack(spacing: 6) {
+                                let firstRowCount = (med.refillDate == nil ? 0 : 1) + (med.daysSupply > 0 ? 1 : 0)
+
                                 if med.notifyDose {
-                                    medPill(text: "ALERTS: Enabled", color: LColors.success.opacity(0.14))
+                                    medPill(
+                                        text: "ALERTS: Enabled",
+                                        tint: theme.palette.rotation[firstRowCount % theme.palette.rotation.count]
+                                    )
                                 }
 
                                 if med.autoDecreaseEnabled {
-                                    medPill(text: "AUTO", color: LColors.gradientPurple.opacity(0.18))
+                                    let autoIndex = firstRowCount + (med.notifyDose ? 1 : 0)
+                                    medPill(
+                                        text: "AUTO",
+                                        tint: theme.palette.rotation[autoIndex % theme.palette.rotation.count]
+                                    )
                                 }
 
                                 Spacer(minLength: 0)
@@ -419,7 +454,10 @@ struct MedicationPageView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
-                    .background(Capsule().fill(LGradients.blue))
+                    .background {
+                        BubblyIconMaterial(tint: theme.palette.primaryAction)
+                            .clipShape(Capsule())
+                    }
                 }
                 .buttonStyle(.plain)
                 .disabled(med.currentAmount == 0)
@@ -430,7 +468,7 @@ struct MedicationPageView: View {
                 rowIconButton(asset: "clockfill") { selectedMed = med; showHistorySheet = true }
                 rowIconButton(asset: "lovecalendar") { selectedMed = med; showRefillSheet = true }
                 rowIconButton(asset: "pencil") { selectedMed = med; showEditSheet = true }
-                rowIconButton(asset: "trash", tint: LColors.gradientPurple.opacity(0.75)) { selectedMed = med; showDeleteConfirm = true }
+                rowIconButton(asset: "trash", tint: theme.palette.secondaryAccent) { selectedMed = med; showDeleteConfirm = true }
             }
         }
     }
@@ -469,10 +507,13 @@ struct MedicationPageView: View {
             ForEach(0..<dotCount, id: \.self) { index in
                 let angle = (Double(index) / Double(dotCount)) * 360.0 - 90.0
                 let isFilled = index < filledDots
+                let dotTint = isFilled
+                    ? theme.palette.rotation[index % theme.palette.rotation.count]
+                    : LColors.glassBorder.opacity(0.45)
 
-                Circle()
-                    .fill(isFilled ? AnyShapeStyle(LGradients.blue) : AnyShapeStyle(LColors.glassBorder.opacity(0.45)))
+                BubblyIconMaterial(tint: dotTint)
                     .frame(width: dotSize, height: dotSize)
+                    .clipShape(Circle())
                     .offset(
                         x: CGFloat(cos(angle * .pi / 180.0)) * radius,
                         y: CGFloat(sin(angle * .pi / 180.0)) * radius
@@ -497,16 +538,18 @@ struct MedicationPageView: View {
     }
 
     @ViewBuilder
-    private func medPill(text: String, color: Color) -> some View {
+    private func medPill(text: String, tint: Color) -> some View {
         Text(text)
             .font(.system(size: 10, weight: .semibold, design: .rounded))
-            .foregroundStyle(LColors.textSecondary)
+            .foregroundStyle(.white)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(color, in: Capsule())
-            .overlay(Capsule().strokeBorder(LColors.glassBorder, lineWidth: 0.75))
+            .background {
+                BubblyIconMaterial(tint: tint)
+                    .clipShape(Capsule())
+            }
     }
 
     @ViewBuilder
@@ -518,6 +561,7 @@ struct MedicationPageView: View {
                 .scaledToFit()
                 .frame(width: 15, height: 15)
                 .foregroundStyle(tint)
+                .bubblyIconMaterial(tint: tint)
                 .frame(width: 30, height: 30)
                 .background(LColors.glassSurface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(LColors.glassBorder, lineWidth: 0.75))
@@ -698,6 +742,310 @@ private struct MedPillWrap: Layout {
 }
 
 // ============================================================
+// MARK: - Medication Material Controls
+// ============================================================
+
+private struct MedicationSlidingIconToggle: View {
+    @Environment(\.appTheme) private var theme
+
+    @Binding var isOn: Bool
+    let iconName: String
+    let accentColor: Color
+    let accessibilityLabel: String
+    var isDisabled = false
+    var usesIconMaterial = true
+    var width: CGFloat = 58
+    var height: CGFloat = 32
+
+    private var knobSize: CGFloat { max(24, height - 6) }
+
+    var body: some View {
+        Button {
+            guard !isDisabled else { return }
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                isOn.toggle()
+            }
+        } label: {
+            ZStack {
+                Capsule()
+                    .fill(isOn ? accentColor.opacity(0.24) : Color.white.opacity(0.07))
+                    .overlay {
+                        Capsule()
+                            .strokeBorder(
+                                isOn ? accentColor.opacity(0.58) : Color.white.opacity(0.16),
+                                lineWidth: 1
+                            )
+                    }
+
+                HStack {
+                    if isOn { Spacer(minLength: 0) }
+
+                    ZStack {
+                        if isOn && usesIconMaterial {
+                            BubblyIconMaterial(tint: accentColor)
+                                .clipShape(Circle())
+                        } else {
+                            Circle()
+                                .fill(isOn ? accentColor : theme.palette.raisedSurface)
+                        }
+
+                        Circle()
+                            .strokeBorder(Color.white.opacity(isOn ? 0.16 : 0.12), lineWidth: 1)
+
+                        Image(iconName)
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 14, height: 14)
+                            .foregroundStyle(isOn ? Color.black : theme.palette.textSecondary)
+                    }
+                    .frame(width: knobSize, height: knobSize)
+
+                    if !isOn { Spacer(minLength: 0) }
+                }
+                .padding(3)
+            }
+            .frame(width: width, height: height)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.45 : 1)
+        .animation(.spring(response: 0.28, dampingFraction: 0.86), value: isOn)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(isOn ? "On" : "Off")
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+private struct MedicationRefillControls: View {
+    @Environment(\.appTheme) private var theme
+
+    @Binding var hasRefillDate: Bool
+    @Binding var refillDate: Date
+
+    var body: some View {
+        GlassCard(padding: 18) {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Set a refill date")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundStyle(LColors.textPrimary)
+                        Text("Auto-refills supply and advances the date when due.")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(LColors.textSecondary.opacity(0.7))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 12)
+
+                    MedicationSlidingIconToggle(
+                        isOn: $hasRefillDate,
+                        iconName: "checkwavy",
+                        accentColor: theme.palette.primaryAction,
+                        accessibilityLabel: "Set a refill date"
+                    )
+                }
+
+                if hasRefillDate {
+                    VStack(alignment: .leading, spacing: 10) {
+                        sectionKicker("refill date")
+                        MedicationRefillCalendar(selection: $refillDate)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct MedicationRefillCalendar: View {
+    @Environment(\.appTheme) private var theme
+
+    @Binding var selection: Date
+    @State private var displayedMonth: Date
+    @State private var showsMonthSelector = false
+
+    private let calendar = Calendar.current
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
+    private let monthColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
+
+    init(selection: Binding<Date>) {
+        _selection = selection
+        let initial = Calendar.current.date(
+            from: Calendar.current.dateComponents([.year, .month], from: selection.wrappedValue)
+        ) ?? selection.wrappedValue
+        _displayedMonth = State(initialValue: initial)
+    }
+
+    private var monthStart: Date {
+        calendar.date(from: calendar.dateComponents([.year, .month], from: displayedMonth)) ?? displayedMonth
+    }
+
+    private var monthTitle: String {
+        monthStart.formatted(.dateTime.month(.wide).year())
+    }
+
+    private var weekdaySymbols: [String] {
+        calendar.shortStandaloneWeekdaySymbols.map { String($0.prefix(3)).uppercased() }
+    }
+
+    private var days: [Date?] {
+        guard let range = calendar.range(of: .day, in: .month, for: monthStart) else { return [] }
+        let firstWeekday = calendar.component(.weekday, from: monthStart)
+        let leading = (firstWeekday - calendar.firstWeekday + 7) % 7
+        let monthDays: [Date?] = range.map { day in
+            calendar.date(byAdding: .day, value: day - 1, to: monthStart)
+        }
+        return Array(repeating: nil, count: leading) + monthDays
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
+                        showsMonthSelector.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(monthTitle)
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
+
+                        Image(showsMonthSelector ? "downwavy" : "rightwavy")
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 12, height: 12)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
+                    }
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                monthStepButton(asset: "leftwavy", value: -1)
+                monthStepButton(asset: "rightwavy", value: 1)
+            }
+
+            if showsMonthSelector {
+                monthSelector
+            } else {
+                dayGrid
+            }
+        }
+        .onChange(of: selection) { _, newValue in
+            guard !calendar.isDate(newValue, equalTo: displayedMonth, toGranularity: .month) else { return }
+            displayedMonth = calendar.date(
+                from: calendar.dateComponents([.year, .month], from: newValue)
+            ) ?? newValue
+        }
+    }
+
+    private var dayGrid: some View {
+        LazyVGrid(columns: columns, spacing: 9) {
+            ForEach(weekdaySymbols, id: \.self) { symbol in
+                Text(symbol)
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(LColors.textSecondary.opacity(0.7))
+                    .frame(maxWidth: .infinity)
+            }
+
+            ForEach(Array(days.enumerated()), id: \.offset) { _, date in
+                if let date {
+                    dayButton(date)
+                } else {
+                    Color.clear.frame(height: 36)
+                }
+            }
+        }
+    }
+
+    private var monthSelector: some View {
+        LazyVGrid(columns: monthColumns, spacing: 8) {
+            ForEach(1...12, id: \.self) { month in
+                let isSelected = calendar.component(.month, from: monthStart) == month
+                Button {
+                    var components = calendar.dateComponents([.year], from: monthStart)
+                    components.month = month
+                    components.day = 1
+                    if let date = calendar.date(from: components) {
+                        displayedMonth = date
+                    }
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
+                        showsMonthSelector = false
+                    }
+                } label: {
+                    Text(calendar.shortMonthSymbols[month - 1])
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundStyle(isSelected ? Color.white : LColors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background {
+                            if isSelected {
+                                BubblyIconMaterial(tint: theme.palette.primaryAction)
+                                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                            } else {
+                                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                    .fill(theme.palette.raisedSurface)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func dayButton(_ date: Date) -> some View {
+        let isSelected = calendar.isDate(date, inSameDayAs: selection)
+        let isToday = calendar.isDateInToday(date)
+
+        return Button {
+            selection = date
+        } label: {
+            Text("\(calendar.component(.day, from: date))")
+                .font(.system(size: 14, weight: isSelected ? .black : .semibold, design: .rounded))
+                .foregroundStyle(isSelected ? Color.white : LColors.textPrimary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 36)
+                .background {
+                    if isSelected {
+                        BubblyIconMaterial(tint: theme.palette.indicators)
+                            .clipShape(Circle())
+                    } else if isToday {
+                        Circle()
+                            .strokeBorder(theme.palette.primaryAction, lineWidth: 1.2)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(date.formatted(date: .long, time: .omitted))
+    }
+
+    private func monthStepButton(asset: String, value: Int) -> some View {
+        Button {
+            let component: Calendar.Component = showsMonthSelector ? .year : .month
+            displayedMonth = calendar.date(byAdding: component, value: value, to: monthStart) ?? monthStart
+        } label: {
+            Image(asset)
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
+                .foregroundStyle(theme.palette.secondaryAccent)
+                .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// ============================================================
 // MARK: - Add / Edit Sheet
 // ============================================================
 
@@ -708,6 +1056,7 @@ struct MedAddEditSheet: View {
     let onSave: (LunixiaMedication) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.appTheme) private var theme
     @FocusState private var focusedInput: MedicationInputField?
 
     @State private var name          = ""
@@ -785,13 +1134,14 @@ struct MedAddEditSheet: View {
                     HStack {
                         Text(isAdd ? "Add Medication" : "Edit Medication")
                             .font(.system(size: 20, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(LColors.textPrimary)
                         Spacer()
                         Button { dismiss() } label: {
                             Image("xmarkwavy")
                                 .renderingMode(.template).resizable().scaledToFit()
                                 .frame(width: 22, height: 22)
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                         }
                         .buttonStyle(.plain)
                     }
@@ -812,17 +1162,17 @@ struct MedAddEditSheet: View {
 
                     // ── Configuration ─────────────────────────────────────
                     fieldSection(label: "configuration") {
-                        configRow(asset: "lovecalendar", label: "Refill Date",   summary: refillSummary,   position: .top)    { showRefillSheet   = true }
+                        configRow(asset: "lovecalendar", label: "Refill Date", summary: refillSummary, position: .top, tint: theme.palette.primaryAction) { showRefillSheet = true }
                         groupedDivider()
-                        configRow(asset: "pilldrop",     label: "Dose Schedule", summary: scheduleSummary, position: .middle) { showScheduleSheet  = true }
+                        configRow(asset: "pilldrop", label: "Dose Schedule", summary: scheduleSummary, position: .middle, tint: theme.palette.secondaryAccent) { showScheduleSheet = true }
                         groupedDivider()
-                        configRow(asset: "bellfill",     label: "Notifications", summary: notifySummary,   position: .bottom) { showNotifySheet    = true }
+                        configRow(asset: "bellfill", label: "Notifications", summary: notifySummary, position: .bottom, tint: theme.palette.indicators) { showNotifySheet = true }
                     }
 
                     // ── Auto Decrease ──────────────────────────────────────
                     autoDecreaseSection
 
-                    medSaveButton(label: "Save Medication") { save() }
+                    medSaveButton(label: "Save Medication", tint: theme.palette.indicators) { save() }
                         .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
 
                     Spacer(minLength: 40)
@@ -1012,7 +1362,14 @@ struct MedAddEditSheet: View {
     }
 
     @ViewBuilder
-    private func configRow(asset: String, label: String, summary: String, position: RowPosition, action: @escaping () -> Void) -> some View {
+    private func configRow(
+        asset: String,
+        label: String,
+        summary: String,
+        position: RowPosition,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
         let c = corners(for: position)
         Button(action: action) {
             HStack(spacing: 12) {
@@ -1021,7 +1378,8 @@ struct MedAddEditSheet: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 18, height: 18)
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(tint)
+                    .bubblyIconMaterial(tint: tint)
                 Text(label)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(LColors.textPrimary)
@@ -1036,6 +1394,7 @@ struct MedAddEditSheet: View {
                     .scaledToFit()
                     .frame(width: 10, height: 10)
                     .foregroundStyle(LColors.textSecondary.opacity(0.45))
+                    .bubblyIconMaterial(tint: LColors.textSecondary.opacity(0.45))
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 15)
@@ -1064,7 +1423,7 @@ struct MedAddEditSheet: View {
 
             GlassCard(padding: 16) {
                 VStack(alignment: .leading, spacing: 16) {
-                    Toggle(isOn: $autoDecreaseEnabled) {
+                    HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Auto Decrease")
                                 .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -1075,8 +1434,17 @@ struct MedAddEditSheet: View {
                                 .foregroundStyle(LColors.textSecondary.opacity(0.7))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
+
+                        Spacer(minLength: 12)
+
+                        MedicationSlidingIconToggle(
+                            isOn: $autoDecreaseEnabled,
+                            iconName: "checkwavy",
+                            accentColor: theme.palette.primaryAction,
+                            accessibilityLabel: "Auto Decrease",
+                            usesIconMaterial: true
+                        )
                     }
-                    .tint(LColors.accent)
 
                     if autoDecreaseEnabled {
                         Divider()
@@ -1087,7 +1455,8 @@ struct MedAddEditSheet: View {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("Decrease Time")
                                         .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(LColors.textPrimary)
+                                        .foregroundStyle(theme.palette.secondaryAccent)
+                                        .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
 
                                     Text("Inventory updates at this time or the next time Lunixia becomes active afterward.")
                                         .font(.system(size: 12, weight: .medium, design: .rounded))
@@ -1099,12 +1468,14 @@ struct MedAddEditSheet: View {
 
                                 Text(autoDecreaseTimeDisplayString)
                                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                                    .foregroundStyle(LGradients.header)
+                                    .foregroundStyle(theme.palette.secondaryAccent)
+                                    .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                             }
 
                             LunixiaGradientTimeDrumPicker(
                                 hour: $autoDecreaseHour,
-                                minute: $autoDecreaseMinute
+                                minute: $autoDecreaseMinute,
+                                tint: theme.palette.secondaryAccent
                             )
                         }
                     }
@@ -1315,6 +1686,7 @@ struct MedRefillConfigSheet: View {
     @Binding var includeRefillDate: Bool
     @Binding var refillDate: Date
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         ZStack {
@@ -1324,55 +1696,28 @@ struct MedRefillConfigSheet: View {
                 HStack {
                     Text("Refill Date")
                         .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     Button { dismiss() } label: {
                         Image("xmarkwavy")
                             .renderingMode(.template).resizable().scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }
                     .buttonStyle(.plain)
                 }
 
-                GlassCard(padding: 18) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Toggle(isOn: $includeRefillDate) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Set a refill date")
-                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(LColors.textPrimary)
-                                Text("Auto-refills supply and advances the date when due.")
-                                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                                    .foregroundStyle(LColors.textSecondary.opacity(0.7))
-                            }
-                        }
-                        .tint(LColors.accent)
-                        .padding(14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(LGradients.blue.opacity(0.12))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(LGradients.header, lineWidth: 1.2)
-                        )
-
-                        if includeRefillDate {
-                            VStack(alignment: .leading, spacing: 8) {
-                                sectionKicker("refill date")
-                                DatePicker("", selection: $refillDate, displayedComponents: [.date])
-                                    .datePickerStyle(.graphical)
-                                    .colorScheme(.dark)
-                                    .labelsHidden()
-                                    .tint(LColors.accent)
-                            }
-                        }
-                    }
-                }
+                MedicationRefillControls(
+                    hasRefillDate: $includeRefillDate,
+                    refillDate: $refillDate
+                )
 
                 Spacer()
-                medDoneButton { dismiss() }
+                medDoneButton(
+                    label: "Save Refill Date",
+                    tint: theme.palette.primaryAction
+                ) { dismiss() }
             }
             .padding(.horizontal, 20)
             .padding(.top, 20)
@@ -1391,6 +1736,7 @@ struct MedScheduleConfigSheet: View {
     @Binding var defaultDoses: Int
     @Binding var doseOverrides: [Int: Int]
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     private let days: [(label: String, weekday: Int)] = [
         ("Sun", 1), ("Mon", 2), ("Tue", 3), ("Wed", 4),
@@ -1403,7 +1749,10 @@ struct MedScheduleConfigSheet: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 24) {
 
-                    medSheetHeader(title: "Dose Schedule") { dismiss() }
+                    medSheetHeader(
+                        title: "Dose Schedule",
+                        tint: theme.palette.primaryAction
+                    ) { dismiss() }
 
                     GlassCard(padding: 18) {
                         VStack(alignment: .leading, spacing: 16) {
@@ -1425,7 +1774,7 @@ struct MedScheduleConfigSheet: View {
                     }
 
                     Spacer(minLength: 20)
-                    medDoneButton { dismiss() }
+                    medDoneButton(tint: theme.palette.primaryAction) { dismiss() }
                     Spacer(minLength: 32)
                 }
                 .padding(.horizontal, 20)
@@ -1452,19 +1801,23 @@ struct MedScheduleConfigSheet: View {
     }
 
     private func frequencyButton(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        let tint = title == "Daily"
+            ? theme.palette.primaryAction
+            : theme.palette.secondaryAccent
+
+        return Button(action: action) {
             Text(title)
                 .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(isSelected ? Color.black.opacity(0.78) : LColors.textSecondary)
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 11)
-                .background(
-                    isSelected ? AnyShapeStyle(LGradients.blue) : AnyShapeStyle(LColors.glassSurface2),
-                    in: RoundedRectangle(cornerRadius: 11, style: .continuous)
-                )
+                .background {
+                    BubblyCardMaterial(tint: tint, cornerRadius: 11)
+                        .opacity(isSelected ? 1 : 0.48)
+                }
                 .overlay(
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .strokeBorder(isSelected ? AnyShapeStyle(LColors.gradientBlue.opacity(0.5)) : AnyShapeStyle(LColors.glassBorder), lineWidth: 0.85)
+                        .strokeBorder(isSelected ? tint : LColors.glassBorder, lineWidth: isSelected ? 1.2 : 0.85)
                 )
         }
         .buttonStyle(.plain)
@@ -1486,23 +1839,25 @@ struct MedScheduleConfigSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 sectionKicker("weekly day")
                 HStack(spacing: 6) {
-                    ForEach(days, id: \.weekday) { day in
+                    ForEach(Array(days.enumerated()), id: \.offset) { index, day in
                         let isSelected = weeklyWeekday == day.weekday
+                        let tint = theme.palette.rotation[index % theme.palette.rotation.count]
                         Button {
                             weeklyWeekday = day.weekday
                         } label: {
                             Text(day.label)
                                 .font(.system(size: 10, weight: .bold, design: .rounded))
-                                .foregroundStyle(isSelected ? Color.black.opacity(0.75) : LColors.textSecondary)
+                                .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 9)
-                                .background(
-                                    isSelected ? AnyShapeStyle(LGradients.blue) : AnyShapeStyle(LColors.glassSurface2),
-                                    in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                )
+                                .background {
+                                    BubblyIconMaterial(tint: tint)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                        .opacity(isSelected ? 1 : 0.38)
+                                }
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .strokeBorder(isSelected ? AnyShapeStyle(LColors.gradientBlue.opacity(0.5)) : AnyShapeStyle(LColors.glassBorder), lineWidth: 1)
+                                        .strokeBorder(isSelected ? tint : LColors.glassBorder, lineWidth: 1)
                                 )
                         }
                         .buttonStyle(.plain)
@@ -1529,12 +1884,10 @@ struct MedScheduleConfigSheet: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 14, height: 14)
-                            .foregroundStyle(defaultDoses <= 1 ? LColors.textSecondary.opacity(0.3) : Color.black.opacity(0.8))
-                            .frame(width: 32, height: 32)
-                            .background(
-                                defaultDoses <= 1 ? AnyShapeStyle(LColors.glassSurface2) : AnyShapeStyle(LGradients.blue),
-                                in: RoundedRectangle(cornerRadius: 9)
-                            )
+                            .foregroundStyle(theme.palette.secondaryAccent)
+                            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .disabled(defaultDoses <= 1)
@@ -1552,9 +1905,10 @@ struct MedScheduleConfigSheet: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 14, height: 14)
-                            .foregroundStyle(Color.black.opacity(0.8))
-                            .frame(width: 32, height: 32)
-                            .background(LGradients.blue, in: RoundedRectangle(cornerRadius: 9))
+                            .foregroundStyle(theme.palette.secondaryAccent)
+                            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
@@ -1577,6 +1931,7 @@ struct MedNotifyConfigSheet: View {
     @Binding var notifyRefill: Bool
     @Binding var daysBeforeRefill: Int
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         ZStack {
@@ -1584,12 +1939,15 @@ struct MedNotifyConfigSheet: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 24) {
 
-                    medSheetHeader(title: "Notifications") { dismiss() }
+                    medSheetHeader(
+                        title: "Notifications",
+                        tint: theme.palette.primaryAction
+                    ) { dismiss() }
 
                     // ── Dose reminders ────────────────────────────────────
                     GlassCard(padding: 18) {
                         VStack(alignment: .leading, spacing: 16) {
-                            Toggle(isOn: $notifyDose) {
+                            HStack(spacing: 12) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Dose reminders")
                                         .font(.system(size: 15, weight: .semibold, design: .rounded))
@@ -1598,43 +1956,20 @@ struct MedNotifyConfigSheet: View {
                                         .font(.system(size: 12, weight: .medium, design: .rounded))
                                         .foregroundStyle(LColors.textSecondary.opacity(0.7))
                                 }
+
+                                Spacer(minLength: 12)
+
+                                MedicationSlidingIconToggle(
+                                    isOn: $notifyDose,
+                                    iconName: "bellfill",
+                                    accentColor: theme.palette.secondaryAccent,
+                                    accessibilityLabel: "Dose reminders"
+                                )
                             }
-                            .tint(LColors.accent)
 
                             if notifyDose {
                                 VStack(alignment: .leading, spacing: 12) {
-                                    ForEach($doseNotifyTimes) { $time in
-                                        VStack(alignment: .leading, spacing: 8) {
-                                            HStack {
-                                                Text(time.displayString)
-                                                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                                                    .foregroundStyle(LGradients.header)
-                                                Spacer()
-                                                if doseNotifyTimes.count > 1 {
-                                                    Button {
-                                                        withAnimation {
-                                                            doseNotifyTimes.removeAll { $0.id == time.id }
-                                                        }
-                                                    } label: {
-                                                        Image("trash")
-                                                            .renderingMode(.template)
-                                                            .resizable()
-                                                            .scaledToFit()
-                                                            .frame(width: 14, height: 14)
-                                                            .foregroundStyle(LColors.danger.opacity(0.7))
-                                                    }
-                                                    .buttonStyle(.plain)
-                                                }
-                                            }
-                                            LunixiaGradientTimeDrumPicker(hour: $time.hour, minute: $time.minute)
-                                        }
-                                        .padding(14)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .fill(LColors.glassSurface2)
-                                                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(LColors.glassBorder, lineWidth: 0.75))
-                                        )
-                                    }
+                                    doseReminderPickers
 
                                     Button {
                                         withAnimation {
@@ -1647,10 +1982,12 @@ struct MedNotifyConfigSheet: View {
                                                 .resizable()
                                                 .scaledToFit()
                                                 .frame(width: 14, height: 14)
+                                                .foregroundStyle(theme.palette.primaryAction)
+                                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                                             Text("Add reminder time")
                                                 .font(.system(size: 13, weight: .bold, design: .rounded))
                                         }
-                                        .foregroundStyle(LGradients.header)
+                                        .foregroundStyle(theme.palette.primaryAction)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
                                         .background(
@@ -1668,7 +2005,7 @@ struct MedNotifyConfigSheet: View {
                     // ── Refill reminder ───────────────────────────────────
                     GlassCard(padding: 18) {
                         VStack(alignment: .leading, spacing: 16) {
-                            Toggle(isOn: $notifyRefill) {
+                            HStack(spacing: 12) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Refill reminder")
                                         .font(.system(size: 15, weight: .semibold, design: .rounded))
@@ -1677,8 +2014,16 @@ struct MedNotifyConfigSheet: View {
                                         .font(.system(size: 12, weight: .medium, design: .rounded))
                                         .foregroundStyle(LColors.textSecondary.opacity(0.7))
                                 }
+
+                                Spacer(minLength: 12)
+
+                                MedicationSlidingIconToggle(
+                                    isOn: $notifyRefill,
+                                    iconName: "lovecalendar",
+                                    accentColor: theme.palette.indicators,
+                                    accessibilityLabel: "Refill reminder"
+                                )
                             }
-                            .tint(LColors.accent)
 
                             if notifyRefill {
                                 VStack(alignment: .leading, spacing: 8) {
@@ -1692,12 +2037,10 @@ struct MedNotifyConfigSheet: View {
                                                 .resizable()
                                                 .scaledToFit()
                                                 .frame(width: 16, height: 16)
-                                                .foregroundStyle(daysBeforeRefill <= 1 ? LColors.textSecondary.opacity(0.3) : Color.black.opacity(0.8))
-                                                .frame(width: 36, height: 36)
-                                                .background(
-                                                    daysBeforeRefill <= 1 ? AnyShapeStyle(LColors.glassSurface2) : AnyShapeStyle(LGradients.blue),
-                                                    in: RoundedRectangle(cornerRadius: 10)
-                                                )
+                                                .foregroundStyle(theme.palette.primaryAction)
+                                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
+                                                .frame(width: 44, height: 44)
+                                                .contentShape(Rectangle())
                                         }
                                         .buttonStyle(.plain)
                                         .disabled(daysBeforeRefill <= 1)
@@ -1715,9 +2058,10 @@ struct MedNotifyConfigSheet: View {
                                                 .resizable()
                                                 .scaledToFit()
                                                 .frame(width: 16, height: 16)
-                                                .foregroundStyle(Color.black.opacity(0.8))
-                                                .frame(width: 36, height: 36)
-                                                .background(LGradients.blue, in: RoundedRectangle(cornerRadius: 10))
+                                                .foregroundStyle(theme.palette.primaryAction)
+                                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
+                                                .frame(width: 44, height: 44)
+                                                .contentShape(Rectangle())
                                         }
                                         .buttonStyle(.plain)
                                     }
@@ -1727,11 +2071,81 @@ struct MedNotifyConfigSheet: View {
                     }
 
                     Spacer(minLength: 20)
-                    medDoneButton { dismiss() }
+                    medDoneButton(tint: theme.palette.secondaryAccent) { dismiss() }
                     Spacer(minLength: 32)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var doseReminderPickers: some View {
+        if doseNotifyTimes.count <= 1 {
+            ForEach($doseNotifyTimes) { $time in
+                reminderTimePicker(time: $time, compact: false)
+            }
+        } else {
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10),
+                ],
+                spacing: 10
+            ) {
+                ForEach($doseNotifyTimes) { $time in
+                    reminderTimePicker(time: $time, compact: true)
+                }
+            }
+        }
+    }
+
+    private func reminderTimePicker(
+        time: Binding<DoseNotifyTime>,
+        compact: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(time.wrappedValue.displayString)
+                    .font(.system(size: compact ? 11 : 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(theme.palette.primaryAction)
+                    .bubblyIconMaterial(tint: theme.palette.primaryAction)
+
+                Spacer(minLength: 6)
+
+                if doseNotifyTimes.count > 1 {
+                    Button {
+                        withAnimation {
+                            doseNotifyTimes.removeAll { $0.id == time.wrappedValue.id }
+                        }
+                    } label: {
+                        Image("trash")
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 14, height: 14)
+                            .foregroundStyle(theme.palette.secondaryAccent)
+                            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                            .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if compact {
+                LunixiaCompactTimeDrumPicker(
+                    hour: time.hour,
+                    minute: time.minute,
+                    tint: theme.palette.primaryAction
+                )
+            } else {
+                LunixiaGradientTimeDrumPicker(
+                    hour: time.hour,
+                    minute: time.minute,
+                    tint: theme.palette.primaryAction
+                )
             }
         }
     }
@@ -1742,6 +2156,8 @@ struct MedNotifyConfigSheet: View {
 // ============================================================
 
 struct MedDoseScheduleGrid: View {
+    @Environment(\.appTheme) private var theme
+
     @Binding var defaultQuantity: Int
     @Binding var overrides: [Int: Int]
     @State private var fieldText: [Int: String] = [:]
@@ -1778,12 +2194,10 @@ struct MedDoseScheduleGrid: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 14, height: 14)
-                            .foregroundStyle((defaultQuantity <= 1 || allDaysCustom) ? LColors.textSecondary.opacity(0.3) : Color.black.opacity(0.8))
-                            .frame(width: 32, height: 32)
-                            .background(
-                                (defaultQuantity <= 1 || allDaysCustom) ? AnyShapeStyle(LColors.glassSurface2) : AnyShapeStyle(LGradients.blue),
-                                in: RoundedRectangle(cornerRadius: 9)
-                            )
+                            .foregroundStyle(theme.palette.secondaryAccent)
+                            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .disabled(defaultQuantity <= 1 || allDaysCustom)
@@ -1801,12 +2215,10 @@ struct MedDoseScheduleGrid: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 14, height: 14)
-                            .foregroundStyle(allDaysCustom ? LColors.textSecondary.opacity(0.3) : Color.black.opacity(0.8))
-                            .frame(width: 32, height: 32)
-                            .background(
-                                allDaysCustom ? AnyShapeStyle(LColors.glassSurface2) : AnyShapeStyle(LGradients.blue),
-                                in: RoundedRectangle(cornerRadius: 9)
-                            )
+                            .foregroundStyle(theme.palette.secondaryAccent)
+                            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .disabled(allDaysCustom)
@@ -1820,8 +2232,11 @@ struct MedDoseScheduleGrid: View {
                 .foregroundStyle(LColors.textSecondary.opacity(0.65))
 
             HStack(spacing: 6) {
-                ForEach(days, id: \.weekday) { day in
-                    dayColumn(day)
+                ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                    dayColumn(
+                        day,
+                        tint: theme.palette.rotation[index % theme.palette.rotation.count]
+                    )
                 }
             }
 
@@ -1836,22 +2251,23 @@ struct MedDoseScheduleGrid: View {
     }
 
     @ViewBuilder
-    private func dayColumn(_ day: (label: String, weekday: Int)) -> some View {
+    private func dayColumn(_ day: (label: String, weekday: Int), tint: Color) -> some View {
         let isSelected = overrides[day.weekday] != nil
         VStack(spacing: 5) {
             Button { toggleDay(day.weekday) } label: {
                 Text(day.label)
                     .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(isSelected ? Color.black.opacity(0.75) : LColors.textSecondary)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(
-                        isSelected ? AnyShapeStyle(LGradients.blue) : AnyShapeStyle(LColors.glassSurface2),
-                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    )
+                    .background {
+                        BubblyIconMaterial(tint: tint)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .opacity(isSelected ? 1 : 0.38)
+                    }
                     .overlay(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(isSelected ? AnyShapeStyle(LColors.gradientBlue.opacity(0.5)) : AnyShapeStyle(LColors.glassBorder), lineWidth: 1)
+                            .strokeBorder(isSelected ? tint : LColors.glassBorder, lineWidth: 1)
                     )
             }
             .buttonStyle(.plain)
@@ -1898,6 +2314,7 @@ struct MedDirectRefillSheet: View {
     let onSave: () -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.appTheme) private var theme
 
     @State private var hasRefillDate: Bool
     @State private var refillDate: Date
@@ -1917,47 +2334,29 @@ struct MedDirectRefillSheet: View {
                 HStack {
                     Text("Refill Date")
                         .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     Button { dismiss() } label: {
                         Image("xmarkwavy")
                             .renderingMode(.template).resizable().scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }
                     .buttonStyle(.plain)
                 }
 
-                GlassCard(padding: 18) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Toggle(isOn: $hasRefillDate) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Set a refill date")
-                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(LColors.textPrimary)
-                                Text("Auto-refills supply and advances the date when due.")
-                                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                                    .foregroundStyle(LColors.textSecondary.opacity(0.7))
-                            }
-                        }
-                        .tint(LColors.accent)
-
-                        if hasRefillDate {
-                            VStack(alignment: .leading, spacing: 8) {
-                                sectionKicker("refill date")
-                                DatePicker("", selection: $refillDate, displayedComponents: [.date])
-                                    .datePickerStyle(.graphical)
-                                    .colorScheme(.dark)
-                                    .labelsHidden()
-                                    .tint(LColors.accent)
-                            }
-                        }
-                    }
-                }
+                MedicationRefillControls(
+                    hasRefillDate: $hasRefillDate,
+                    refillDate: $refillDate
+                )
 
                 Spacer()
 
-                medDoneButton(label: "Save Refill Date") {
+                medDoneButton(
+                    label: "Save Refill Date",
+                    tint: theme.palette.primaryAction
+                ) {
                     let previousRefillDate = medication.refillDate
                     let previousAmount = medication.currentAmount
                     let now = Date()
@@ -2010,6 +2409,7 @@ struct MedInventorySheet: View {
     let medication: LunixiaMedication
     let onAction: (InventoryAction) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
     @State private var adjustedAmount: Int
     @State private var didCommitAdjustment = false
 
@@ -2031,13 +2431,14 @@ struct MedInventorySheet: View {
                     HStack {
                         Text("Adjust Inventory")
                             .font(.system(size: 20, weight: .black, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(LColors.textPrimary)
                         Spacer()
                         Button { commitAndDismiss() } label: {
                             Image("xmarkwavy")
                                 .renderingMode(.template).resizable().scaledToFit()
                                 .frame(width: 22, height: 22)
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                         }
                         .buttonStyle(.plain)
                     }
@@ -2053,7 +2454,7 @@ struct MedInventorySheet: View {
                         HStack(spacing: 10) {
                             quickBtn("-1")                       { adjustedAmount = max(0, adjustedAmount - 1) }
                             quickBtn("+1")                       { adjustedAmount += 1 }
-                            quickBtn("Set Full", gradient: true) { adjustedAmount = max(0, medication.supplyAmount) }
+                            quickBtn("Set Full", tint: theme.palette.primaryAction) { adjustedAmount = max(0, medication.supplyAmount) }
                         }
                     }
 
@@ -2065,7 +2466,7 @@ struct MedInventorySheet: View {
                     }
 
                     Spacer(minLength: 20)
-                    medDoneButton { commitAndDismiss() }
+                    medDoneButton(tint: theme.palette.indicators) { commitAndDismiss() }
                     Spacer(minLength: 32)
                 }
                 .padding(.horizontal, 20)
@@ -2087,12 +2488,19 @@ struct MedInventorySheet: View {
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(LColors.glassBorder, lineWidth: 0.75))
     }
 
-    @ViewBuilder private func quickBtn(_ label: String, gradient: Bool = false, action: @escaping () -> Void) -> some View {
+    @ViewBuilder private func quickBtn(_ label: String, tint: Color? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label).font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(gradient ? Color.white : LColors.textPrimary)
+                .foregroundStyle(tint == nil ? LColors.textPrimary : Color.white)
                 .frame(maxWidth: .infinity).padding(.vertical, 11)
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(gradient ? AnyShapeStyle(LGradients.blue) : AnyShapeStyle(LColors.glassSurface)))
+                .background {
+                    if let tint {
+                        BubblyCardMaterial(tint: tint, cornerRadius: 10)
+                    } else {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(LColors.glassSurface)
+                    }
+                }
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(LColors.glassBorder, lineWidth: 0.75))
         }
         .buttonStyle(.plain)
@@ -2109,7 +2517,8 @@ struct MedInventorySheet: View {
 
             Text("\(adjustedAmount)")
                 .font(.system(size: 26, weight: .black, design: .rounded))
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(theme.palette.secondaryAccent)
+                .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                 .contentTransition(.numericText())
                 .frame(minWidth: 72)
 
@@ -2147,6 +2556,8 @@ private struct InventoryRepeatingAdjustmentButton: View {
     var isEnabled: Bool = true
     let action: () -> Void
 
+    @Environment(\.appTheme) private var theme
+
     @State private var isPressed = false
     @State private var repeatTask: Task<Void, Never>?
 
@@ -2156,7 +2567,8 @@ private struct InventoryRepeatingAdjustmentButton: View {
             .resizable()
             .scaledToFit()
             .frame(width: 28, height: 28)
-            .foregroundStyle(LGradients.header)
+            .foregroundStyle(theme.palette.secondaryAccent)
+            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
             .frame(width: 54, height: 54)
             .scaleEffect(isPressed ? 0.92 : 1)
             .opacity(isEnabled ? 1 : 0.35)
@@ -2213,6 +2625,7 @@ struct MedHistorySheet: View {
     var isPremium: Bool = false
     let onDeleteEntry: (LunixiaMedHistoryEntry) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
     @State private var showDeleteConfirm = false
     @State private var entryPendingDeletion: LunixiaMedHistoryEntry? = nil
     @State private var visibleCount = 6
@@ -2245,13 +2658,14 @@ struct MedHistorySheet: View {
                 HStack {
                     Text("History")
                         .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     Button { dismiss() } label: {
                         Image("xmarkwavy")
                             .renderingMode(.template).resizable().scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }
                     .buttonStyle(.plain)
                 }
@@ -2266,7 +2680,12 @@ struct MedHistorySheet: View {
                 } else {
                     ScrollView(.vertical, showsIndicators: false) {
                         VStack(spacing: 10) {
-                            ForEach(entries) { entry in historyRow(entry) }
+                            ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
+                                historyRow(
+                                    entry,
+                                    tint: theme.palette.rotation[index % theme.palette.rotation.count]
+                                )
+                            }
 
                             if totalCount > pageSize {
                                 VStack(spacing: 10) {
@@ -2279,7 +2698,10 @@ struct MedHistorySheet: View {
                                                 .foregroundStyle(.white)
                                                 .padding(.horizontal, 20)
                                                 .padding(.vertical, 9)
-                                                .background(LColors.accentGradient, in: Capsule())
+                                                .background {
+                                                    BubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                                                        .clipShape(Capsule())
+                                                }
                                         }
                                         .buttonStyle(.plain)
                                     }
@@ -2324,20 +2746,24 @@ struct MedHistorySheet: View {
         }
     }
 
-    @ViewBuilder private func historyRow(_ entry: LunixiaMedHistoryEntry) -> some View {
+    @ViewBuilder private func historyRow(_ entry: LunixiaMedHistoryEntry, tint: Color) -> some View {
         GlassCard(padding: 12) {
-            HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(entry.type.rawValue.uppercased())
                     .font(.system(size: 9, weight: .black, design: .rounded)).foregroundStyle(.white).kerning(0.8)
                     .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(typeBadgeColor(entry.type), in: Capsule())
+                    .background {
+                        BubblyIconMaterial(tint: tint)
+                            .clipShape(Capsule())
+                    }
+
                 VStack(alignment: .leading, spacing: 3) {
                     if !entry.amountText.isEmpty { Text(entry.amountText).font(.system(size: 14, weight: .bold, design: .rounded)).foregroundStyle(LColors.textPrimary) }
                     if !entry.details.isEmpty    { Text(entry.details).font(.system(size: 12, weight: .medium, design: .rounded)).foregroundStyle(LColors.textSecondary) }
                     Text(entry.createdAt.formatted(date: .abbreviated, time: .shortened))
                         .font(.system(size: 11, weight: .medium, design: .rounded)).foregroundStyle(LColors.textSecondary.opacity(0.5))
                 }
-                Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .onLongPressGesture {
                 entryPendingDeletion = entry
@@ -2346,13 +2772,6 @@ struct MedHistorySheet: View {
         }
     }
 
-    private func typeBadgeColor(_ type: LunixiaMedHistoryEntry.EntryType) -> AnyShapeStyle {
-        switch type {
-        case .taken:    return AnyShapeStyle(LGradients.blue)
-        case .refilled: return AnyShapeStyle(LinearGradient(colors: [LColors.success, LColors.gradientBlue], startPoint: .leading, endPoint: .trailing))
-        case .edited:   return AnyShapeStyle(LinearGradient(colors: [LColors.gradientPurple, LColors.gradientBlue], startPoint: .leading, endPoint: .trailing))
-        }
-    }
 }
 
 // ============================================================
@@ -2360,26 +2779,35 @@ struct MedHistorySheet: View {
 // ============================================================
 
 @ViewBuilder
-private func medSheetHeader(title: String, onDismiss: @escaping () -> Void) -> some View {
+private func medSheetHeader(
+    title: String,
+    tint: Color,
+    onDismiss: @escaping () -> Void
+) -> some View {
     HStack {
+        Text(title)
+            .font(.system(size: 20, weight: .black, design: .rounded))
+            .foregroundStyle(LColors.textPrimary)
+
+        Spacer()
+
         Button(action: onDismiss) {
             Image("xmarkwavy")
                 .renderingMode(.template).resizable().scaledToFit()
                 .frame(width: 22, height: 22)
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(tint)
+                .bubblyIconMaterial(tint: tint)
         }
         .buttonStyle(.plain)
-        Spacer()
-        Text(title)
-            .font(.system(size: 20, weight: .black, design: .rounded))
-            .foregroundStyle(LGradients.header)
-        Spacer()
-        Color.clear.frame(width: 22, height: 22)
     }
 }
 
 @ViewBuilder
-private func medDoneButton(label: String = "Done", action: @escaping () -> Void) -> some View {
+private func medDoneButton(
+    label: String = "Done",
+    tint: Color,
+    action: @escaping () -> Void
+) -> some View {
     Button(action: action) {
         HStack(spacing: 8) {
             Image("checkwavy")
@@ -2390,11 +2818,12 @@ private func medDoneButton(label: String = "Done", action: @escaping () -> Void)
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: LSpacing.buttonRadius, style: .continuous)
-                .fill(LColors.accentGradient)
-                .shadow(color: LColors.gradientPurple.opacity(0.35), radius: 12, y: 6)
-        )
+        .background {
+            BubblyCardMaterial(
+                tint: tint,
+                cornerRadius: LSpacing.buttonRadius
+            )
+        }
     }
     .buttonStyle(.plain)
 }
@@ -2408,6 +2837,10 @@ private func sectionKicker(_ text: String) -> some View {
 }
 
 @ViewBuilder
-private func medSaveButton(label: String, action: @escaping () -> Void) -> some View {
-    medDoneButton(label: label, action: action)
+private func medSaveButton(
+    label: String,
+    tint: Color,
+    action: @escaping () -> Void
+) -> some View {
+    medDoneButton(label: label, tint: tint, action: action)
 }

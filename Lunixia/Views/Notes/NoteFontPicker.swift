@@ -6,6 +6,8 @@
 import SwiftUI
 
 struct NoteFontPicker: View {
+    @Environment(\.appTheme) private var theme
+
     @Binding var selectedFontID: String
     @State private var isExpanded = false
 
@@ -151,7 +153,8 @@ struct NoteFontPicker: View {
     private func fontBadge(for option: NoteFontOption) -> some View {
         ZStack {
             Circle()
-                .fill(LGradients.header.opacity(0.82))
+                .fill(theme.palette.primaryAction)
+                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                 .overlay(Circle().stroke(Color.white.opacity(0.24), lineWidth: 1))
 
             Text(fontInitials(for: option))
@@ -184,6 +187,8 @@ struct NoteFontPicker: View {
 }
 
 struct NoteFontSizeControl: View {
+    @Environment(\.appTheme) private var theme
+
     @Binding var fontSize: Double
     // Must be the State's own projected binding ($draftFontID), not a plain value and
     // not a hand-built Binding closure — both read the stale captured NotesView struct.
@@ -216,7 +221,11 @@ struct NoteFontSizeControl: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(LGradients.header, in: Capsule(style: .continuous))
+                    .background {
+                        Capsule(style: .continuous)
+                            .fill(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
+                    }
             }
 
             HStack(spacing: 12) {
@@ -231,7 +240,8 @@ struct NoteFontSizeControl: View {
                                 .fill(Color.white.opacity(0.11))
 
                             Capsule(style: .continuous)
-                                .fill(LGradients.header)
+                                .fill(theme.palette.primaryAction)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
                                 .frame(width: max(18, proxy.size.width * progress))
 
                             Circle()

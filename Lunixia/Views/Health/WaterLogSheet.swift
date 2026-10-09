@@ -35,7 +35,7 @@ struct WaterLogSheet: View {
                     Spacer()
                     Text("Log Water")
                         .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     Color.clear.frame(width: 22, height: 22)
                 }

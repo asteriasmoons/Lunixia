@@ -70,12 +70,12 @@ struct LunixiaBugReportView: View {
 
     private var detailsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            LunixiaReportSectionHeader(title: "Report Details", color: theme.palette.secondaryAccent, bubbly: true)
+            LunixiaReportSectionHeader(title: "Report Details", color: theme.palette.primaryAction, bubbly: true)
             LunixiaReportTextField(title: "Title", placeholder: "Short description of the bug", text: $title, borderColor: theme.palette.primaryAction)
-            LunixiaReportPickerField(title: "Category", options: LunixiaReportFormOptions.areaGroups, selection: $areaGroup, bubblyTint: theme.palette.secondaryAccent)
-            LunixiaReportPickerField(title: "Area", options: LunixiaReportFormOptions.areas(for: areaGroup), selection: $category, bubblyTint: theme.palette.primaryAction)
-            LunixiaReportPickerField(title: "Severity", options: severities, selection: $severity, bubblyTint: theme.palette.secondaryAccent)
-            LunixiaReportPickerField(title: "Frequency", options: frequencies, selection: $frequency, bubblyTint: theme.palette.primaryAction)
+            LunixiaReportPickerField(title: "Category", options: LunixiaReportFormOptions.areaGroups, selection: $areaGroup, bubblyTint: theme.palette.primaryAction, usesCardMaterial: true)
+            LunixiaReportPickerField(title: "Area", options: LunixiaReportFormOptions.areas(for: areaGroup), selection: $category, bubblyTint: theme.palette.secondaryAccent, usesCardMaterial: true)
+            LunixiaReportPickerField(title: "Severity", options: severities, selection: $severity, bubblyTint: theme.palette.indicators, usesCardMaterial: true)
+            LunixiaReportPickerField(title: "Frequency", options: frequencies, selection: $frequency, bubblyTint: theme.palette.primaryAction, usesCardMaterial: true)
         }
     }
 
@@ -89,18 +89,18 @@ struct LunixiaBugReportView: View {
 
     private var reproductionSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            LunixiaReportSectionHeader(title: "Reproduce the Bug", color: theme.palette.primaryAction, bubbly: true)
-            LunixiaReportDynamicStepsField(title: "Steps to Reproduce", steps: $steps, maxSteps: 10, accentColor: theme.palette.secondaryAccent, bubblyNumbers: true)
+            LunixiaReportSectionHeader(title: "Reproduce the Bug", color: theme.palette.indicators, bubbly: true)
+            LunixiaReportDynamicStepsField(title: "Steps to Reproduce", steps: $steps, maxSteps: 10, accentColor: theme.palette.indicators, bubblyNumbers: true)
             LunixiaReportTextEditor(title: "Additional Notes", placeholder: "Anything else that might help explain the problem?", text: $additionalNotes, minHeight: 100, borderColor: theme.palette.primaryAction)
         }
     }
 
     private func attachmentsSection(title: String) -> some View {
-        LunixiaReportAttachmentsPicker(title: title, selectedPhotos: $selectedPhotos, attachmentData: attachmentData, accentColor: theme.palette.secondaryAccent, bubbly: true)
+        LunixiaReportAttachmentsPicker(title: title, selectedPhotos: $selectedPhotos, attachmentData: attachmentData, accentColor: theme.palette.secondaryAccent, sectionColor: theme.palette.primaryAction, bubbly: true)
     }
 
     private func diagnosticsCard(screenName: String) -> some View {
-        LunixiaReportDiagnosticsCard(screenName: screenName, borderColor: theme.palette.primaryAction)
+        LunixiaReportDiagnosticsCard(screenName: screenName, borderColor: theme.palette.indicators)
     }
 
     private func statusCards(successTitle: String, reportID: String?, error: String?) -> some View {
@@ -113,7 +113,8 @@ struct LunixiaBugReportView: View {
             sendingTitle: "Sending...",
             canSubmit: canSubmit,
             isSubmitting: isSubmitting,
-            bubblyTint: theme.palette.secondaryAccent
+            bubblyTint: theme.palette.primaryAction,
+            usesCardMaterial: true
         ) {
             Task { await submitReport() }
         }

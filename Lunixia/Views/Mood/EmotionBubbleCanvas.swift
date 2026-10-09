@@ -93,42 +93,27 @@ struct EmotionBubbleCanvas: View {
 // MARK: - Single Bubble
 
 struct EmotionBubbleView: View {
+    @Environment(\.appTheme) private var theme
+
     let bubble: EmotionBubbleItem
     let isSelected: Bool
     let onTap: () -> Void
 
     var body: some View {
-        let colors = bubble.emotion.category.bubbleColors
-
         ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color(lunixiaHex: colors.Color1).opacity(0.95),
-                            Color(lunixiaHex: colors.Color2).opacity(0.75)
-                        ],
-                        center: .topLeading,
-                        startRadius: 0,
-                        endRadius: bubble.radius * 1.6
-                    )
-                )
+            BubblyCardMaterial(
+                tint: theme.palette.primaryAction,
+                cornerRadius: bubble.radius
+            )
                 .overlay(
                     Circle()
                         .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(isSelected ? 0.9 : 0.3),
-                                    Color(lunixiaHex: colors.Color1).opacity(0.4)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
+                            theme.palette.textPrimary.opacity(isSelected ? 0.9 : 0.3),
                             lineWidth: isSelected ? 2.5 : 1
                         )
                 )
                 .shadow(
-                    color: Color(lunixiaHex: colors.Color1).opacity(isSelected ? 0.7 : 0.25),
+                    color: theme.palette.primaryAction.opacity(isSelected ? 0.55 : 0.18),
                     radius: isSelected ? 16 : 8
                 )
 

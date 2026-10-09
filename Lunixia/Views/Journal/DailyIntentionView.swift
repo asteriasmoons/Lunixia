@@ -11,6 +11,7 @@ import Combine
 struct DailyIntentionView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.appTheme) private var theme
 
     @Query(sort: \DailyIntention.updatedAt, order: .reverse)
     private var intentions: [DailyIntention]
@@ -42,11 +43,13 @@ struct DailyIntentionView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 18, height: 18)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.primaryAction)
+                        .bubblyIconMaterial(tint: theme.palette.primaryAction)
 
                     Text("Daily Intention")
                         .font(.system(size: 22, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.primaryAction)
+                        .bubblyIconMaterial(tint: theme.palette.primaryAction)
 
                     Spacer()
 
@@ -60,8 +63,10 @@ struct DailyIntentionView: View {
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(LColors.accent)
-                                .clipShape(Capsule())
+                                .background {
+                                    BubblyIconMaterial(tint: theme.palette.primaryAction)
+                                        .clipShape(Capsule())
+                                }
                         }
                         .buttonStyle(.plain)
                         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -106,10 +111,10 @@ struct DailyIntentionView: View {
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 9)
-                                .background(
-                                    Capsule()
-                                        .fill(LColors.accentGradient)
-                                )
+                                .background {
+                                    BubblyIconMaterial(tint: theme.palette.primaryAction)
+                                        .clipShape(Capsule())
+                                }
                         }
                         .buttonStyle(.plain)
                         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isGeneratingIntention)
@@ -126,8 +131,9 @@ struct DailyIntentionView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 0) {
                             Rectangle()
-                                .fill(LColors.accentGradient)
+                                .fill(theme.palette.primaryAction)
                                 .frame(width: 5)
+                                .bubblyIconMaterial(tint: theme.palette.primaryAction)
 
                             Text(text)
                                 .font(.system(size: 14))
@@ -190,10 +196,10 @@ struct DailyIntentionView: View {
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(LColors.accentGradient)
-                                )
+                                .background {
+                                    BubblyIconMaterial(tint: theme.palette.primaryAction)
+                                        .clipShape(Capsule())
+                                }
                             }
                             .buttonStyle(.plain)
 

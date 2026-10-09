@@ -61,7 +61,7 @@ struct SelfCarePointsView: View {
                 HStack(spacing: 16) {
                     Text("Self-Care Points")
                         .font(.system(size: 24, weight: .black, design: .rounded))
-                        .foregroundStyle(pinkGrad)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                 }
                 .padding(.horizontal, 20)
@@ -585,7 +585,7 @@ struct PointsHistorySheet: View {
                 HStack {
                     Text("History")
                         .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(pinkGrad)
+                        .foregroundStyle(LColors.textPrimary)
 
                     Spacer()
 

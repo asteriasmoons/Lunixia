@@ -7,6 +7,8 @@ import SwiftUI
 import SwiftData
 
 struct JournalCard: View {
+    @Environment(\.appTheme) private var theme
+
     let entry: JournalEntry
     let onView: (JournalEntry) -> Void
     let onTagSelect: (String) -> Void
@@ -46,19 +48,22 @@ struct JournalCard: View {
 
                     if !entry.tags.isEmpty {
                         TagFlowLayout(spacing: 8) {
-                            ForEach(entry.tags, id: \.self) { tag in
+                            ForEach(entry.tags.indices, id: \.self) { index in
+                                let tag = entry.tags[index]
+                                let tint = theme.palette.rotation[index % theme.palette.rotation.count]
+
                                 Button { onTagSelect(tag) } label: {
                                     Text("#\(tag)")
                                         .font(.system(size: 12, weight: .bold))
                                         .lineLimit(1)
-                                        .foregroundStyle(LGradients.tag)
+                                        .foregroundStyle(.white)
+                                        .shadow(color: .black, radius: 2, y: 1)
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 6)
-                                        .background(Color.white.opacity(0.06))
-                                        .clipShape(Capsule())
-                                        .overlay(
-                                            Capsule().stroke(LGradients.tag, lineWidth: 1)
-                                        )
+                                        .background {
+                                            BubblyIconMaterial(tint: tint)
+                                                .clipShape(Capsule())
+                                        }
                                 }
                                 .buttonStyle(.plain)
                             }

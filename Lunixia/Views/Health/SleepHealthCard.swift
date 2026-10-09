@@ -8,6 +8,7 @@ import SwiftData
 
 struct SleepHealthCard: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.appTheme) private var theme
     @State private var isShowingNapEntrySheet = false
     @State private var isShowingNapHistorySheet = false
 
@@ -117,7 +118,8 @@ struct SleepHealthCard: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 22, height: 22)
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(theme.palette.primaryAction)
+                .bubblyIconMaterial(tint: theme.palette.primaryAction)
 
             Text("Sleep")
                 .font(.system(size: 16, weight: .bold, design: .rounded))
@@ -136,6 +138,7 @@ struct SleepHealthCard: View {
                         .scaledToFit()
                         .frame(width: 16, height: 16)
                         .foregroundStyle(LColors.textSecondary.opacity(0.7))
+                        .bubblyIconMaterial(tint: LColors.textSecondary.opacity(0.7))
                 }
                 .buttonStyle(.plain)
 
@@ -147,7 +150,8 @@ struct SleepHealthCard: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 18, height: 18)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.primaryAction)
+                        .bubblyIconMaterial(tint: theme.palette.primaryAction)
                 }
                 .buttonStyle(.plain)
             }
@@ -181,14 +185,19 @@ struct SleepHealthCard: View {
         .frame(maxWidth: .infinity, minHeight: 34)
         .padding(.vertical, 4)
         .padding(.horizontal, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(LColors.glassSurface)
-        )
+        .background {
+            GlassTile(
+                borderColor: theme.palette.primaryAction
+            ) {
+                Color.clear
+            }
+        }
     }
 }
 
 private struct SleepDottedGradientRing: View {
+    @Environment(\.appTheme) private var theme
+
     let progress: Double
     let value: String
     let subtitle: String
@@ -218,14 +227,11 @@ private struct SleepDottedGradientRing: View {
                 Circle()
                     .fill(
                         isActive
-                        ? AnyShapeStyle(LGradients.header)
+                        ? AnyShapeStyle(theme.palette.primaryAction)
                         : AnyShapeStyle(LColors.glassSurface2)
                     )
                     .frame(width: dotSize, height: dotSize)
-                    .shadow(
-                        color: isActive ? LColors.gradientBlue.opacity(0.45) : .clear,
-                        radius: isActive ? 3 : 0
-                    )
+                    .bubblyIconMaterial(tint: isActive ? theme.palette.primaryAction : LColors.glassSurface2)
                     .offset(
                         x: cos(radians) * horizontalRadius,
                         y: sin(radians) * verticalRadius
@@ -235,7 +241,8 @@ private struct SleepDottedGradientRing: View {
             VStack(spacing: 2) {
                 Text(value)
                     .font(.system(size: 18, weight: .black, design: .rounded))
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(theme.palette.primaryAction)
+                    .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
 
@@ -253,6 +260,7 @@ private struct SleepDottedGradientRing: View {
 
 private struct SleepNapEntrySheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
 
     let onSave: (Date, Date, String) -> Void
 
@@ -295,45 +303,57 @@ private struct SleepNapEntrySheet: View {
 
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 16) {
-                            GlassCard(padding: 16) {
-                            VStack(alignment: .leading, spacing: 16) {
-                                VStack(alignment: .leading, spacing: 10) {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "moon.zzz.fill")
-                                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                                            .foregroundStyle(LGradients.header)
+                            HStack(alignment: .top, spacing: 10) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack(spacing: 6) {
+                                        Image("playwavy")
+                                            .renderingMode(.template)
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 14, height: 14)
+                                            .foregroundStyle(theme.palette.primaryAction)
+                                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
 
                                         Text("Nap Start")
-                                            .font(.system(size: 13, weight: .black, design: .rounded))
+                                            .font(.system(size: 12, weight: .bold, design: .rounded))
                                             .foregroundStyle(LColors.textSecondary)
                                     }
 
-                                    LunixiaGradientTimeDrumPicker(
+                                    LunixiaCompactTimeDrumPicker(
                                         hour: $startHour,
-                                        minute: $startMinute
+                                        minute: $startMinute,
+                                        tint: theme.palette.primaryAction,
+                                        usesDarkTypography: true
                                     )
                                 }
+                                .frame(maxWidth: .infinity, alignment: .leading)
 
-                                VStack(alignment: .leading, spacing: 10) {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "sunset.fill")
-                                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                                            .foregroundStyle(LGradients.header)
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack(spacing: 6) {
+                                        Image("stopwavy")
+                                            .renderingMode(.template)
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 14, height: 14)
+                                            .foregroundStyle(theme.palette.secondaryAccent)
+                                            .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
 
                                         Text("Nap End")
-                                            .font(.system(size: 13, weight: .black, design: .rounded))
+                                            .font(.system(size: 12, weight: .bold, design: .rounded))
                                             .foregroundStyle(LColors.textSecondary)
                                     }
 
-                                    LunixiaGradientTimeDrumPicker(
+                                    LunixiaCompactTimeDrumPicker(
                                         hour: $endHour,
-                                        minute: $endMinute
+                                        minute: $endMinute,
+                                        tint: theme.palette.secondaryAccent,
+                                        usesDarkTypography: true
                                     )
                                 }
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             }
-                        }
 
-                        GlassCard(padding: 16) {
+                        GlassTile(cornerRadius: 26, borderColor: theme.palette.indicators) {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Duration")
                                     .font(.system(size: 12, weight: .black, design: .rounded))
@@ -341,12 +361,14 @@ private struct SleepNapEntrySheet: View {
 
                                 Text(durationDisplay)
                                     .font(.system(size: 28, weight: .black, design: .rounded))
-                                    .foregroundStyle(LGradients.header)
+                                    .foregroundStyle(theme.palette.indicators)
+                                    .bubblyIconMaterial(tint: theme.palette.indicators)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
                         }
 
-                        GlassCard(padding: 16) {
+                        GlassTile(cornerRadius: 26, borderColor: theme.palette.primaryAction) {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Notes")
                                     .font(.system(size: 12, weight: .black, design: .rounded))
@@ -357,6 +379,7 @@ private struct SleepNapEntrySheet: View {
                                     .foregroundStyle(LColors.textPrimary)
                                     .lineLimit(3...5)
                             }
+                            .padding(16)
                         }
 
                         Button {
@@ -374,17 +397,11 @@ private struct SleepNapEntrySheet: View {
                                 Text("Save Nap")
                                     .font(.system(size: 15, weight: .black, design: .rounded))
                             }
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(.white)
+                            .shadow(color: .black, radius: 2, x: 0, y: 1)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .fill(LColors.glassSurface)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .strokeBorder(LColors.glassBorder, lineWidth: 1)
-                            )
+                            .bubblyCardMaterial(tint: theme.palette.secondaryAccent, cornerRadius: 26)
                         }
                         .buttonStyle(.plain)
                         .disabled(endDate <= startDate)
@@ -438,17 +455,10 @@ private struct SleepNapEntrySheet: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            Image("moonzs")
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 24, height: 24)
-                .foregroundStyle(LGradients.header)
-
             VStack(alignment: .leading, spacing: 2) {
                 Text("Log Nap")
                     .font(.system(size: 22, weight: .black, design: .rounded))
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(LColors.textPrimary)
 
                 Text("Add a nap to your sleep history.")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -465,7 +475,8 @@ private struct SleepNapEntrySheet: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 18, height: 18)
-                    .foregroundStyle(LGradients.header)
+                    .foregroundStyle(theme.palette.primaryAction)
+                    .bubblyIconMaterial(tint: theme.palette.primaryAction)
             }
             .buttonStyle(.plain)
         }
@@ -475,6 +486,7 @@ private struct SleepNapEntrySheet: View {
 private struct SleepNapHistorySheet: View {
         @Environment(\.dismiss) private var dismiss
         @Environment(\.modelContext) private var modelContext
+        @Environment(\.appTheme) private var theme
 
         @Query(sort: \NapEntry.startDate, order: .reverse) private var naps: [NapEntry]
 
@@ -510,17 +522,17 @@ private struct SleepNapHistorySheet: View {
                         ScrollView(showsIndicators: false) {
                             VStack(alignment: .leading, spacing: 16) {
                                 HStack(spacing: 10) {
-                                    historySummaryBox(value: "\(naps.count)", label: "Naps")
-                                    historySummaryBox(value: totalDisplay, label: "Total")
-                                    historySummaryBox(value: averageDisplay, label: "Average")
+                                    historySummaryBox(value: "\(naps.count)", label: "Naps", tint: theme.palette.primaryAction)
+                                    historySummaryBox(value: totalDisplay, label: "Total", tint: theme.palette.secondaryAccent)
+                                    historySummaryBox(value: averageDisplay, label: "Average", tint: theme.palette.indicators)
                                 }
 
                                 if naps.isEmpty {
                                     emptyState
                                 } else {
                                     VStack(spacing: 10) {
-                                        ForEach(naps) { nap in
-                                            napRow(nap)
+                                        ForEach(Array(naps.enumerated()), id: \.element.id) { index, nap in
+                                            napRow(nap, tint: napTint(for: index))
                                         }
                                     }
                                 }
@@ -539,17 +551,10 @@ private struct SleepNapHistorySheet: View {
 
         private var header: some View {
             HStack(spacing: 10) {
-                Image("clockfill")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 24, height: 24)
-                    .foregroundStyle(LColors.textSecondary.opacity(0.75))
-
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Nap History")
                         .font(.system(size: 22, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
 
                     Text("Review your logged rest moments.")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -566,15 +571,15 @@ private struct SleepNapHistorySheet: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 18, height: 18)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.primaryAction)
+                        .bubblyIconMaterial(tint: theme.palette.primaryAction)
                 }
                 .buttonStyle(.plain)
             }
         }
 
-        private func historySummaryBox(value: String, label: String) -> some View {
-            GlassCard(cornerRadius: 12, padding: 8) {
-                VStack(spacing: 2) {
+        private func historySummaryBox(value: String, label: String, tint: Color) -> some View {
+            VStack(spacing: 2) {
                     Text(value)
                         .font(.system(size: 13, weight: .black, design: .rounded))
                         .foregroundStyle(value == "0" ? LColors.textSecondary.opacity(0.35) : LColors.textPrimary)
@@ -587,7 +592,8 @@ private struct SleepNapHistorySheet: View {
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity)
-            }
+                .padding(8)
+                .bubblyCardMaterial(tint: tint, cornerRadius: 12)
         }
 
         private var emptyState: some View {
@@ -615,15 +621,24 @@ private struct SleepNapHistorySheet: View {
             }
         }
 
-        private func napRow(_ nap: NapEntry) -> some View {
-            GlassCard(padding: 12) {
+        private func napTint(for index: Int) -> Color {
+            switch index % 3 {
+            case 0: return theme.palette.primaryAction
+            case 1: return theme.palette.secondaryAccent
+            default: return theme.palette.indicators
+            }
+        }
+
+        private func napRow(_ nap: NapEntry, tint: Color) -> some View {
+            GlassTile(borderColor: theme.palette.primaryAction) {
                 HStack(alignment: .top, spacing: 10) {
                     Image("moonzs")
                         .renderingMode(.template)
                         .resizable()
                         .scaledToFit()
                         .frame(width: 18, height: 18)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(tint)
+                        .bubblyIconMaterial(tint: tint)
                         .padding(.top, 2)
 
                     VStack(alignment: .leading, spacing: 5) {
@@ -644,7 +659,8 @@ private struct SleepNapHistorySheet: View {
 
                             Text(nap.durationDisplay)
                                 .font(.system(size: 12, weight: .black, design: .rounded))
-                                .foregroundStyle(LGradients.header)
+                                .foregroundStyle(tint)
+                                .bubblyIconMaterial(tint: tint)
                                 .lineLimit(1)
                         }
 
@@ -660,6 +676,7 @@ private struct SleepNapHistorySheet: View {
                         }
                     }
                 }
+                .padding(12)
             }
             .contextMenu {
                 Button(role: .destructive) {

@@ -258,7 +258,7 @@ struct SpiritualView: View {
                 HStack {
                     Text("Spiritual")
                         .font(.system(size: 28, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                 }
                 .padding(.horizontal, 20)
@@ -328,6 +328,7 @@ struct SpiritualView: View {
 
 private struct MeditationTimerCard: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.appTheme) private var theme
     
     @State private var customMinutesText = ""
     @State private var isEnteringCustomTime = false
@@ -384,7 +385,8 @@ private struct MeditationTimerCard: View {
                             width: 19,
                             height: 19
                         )
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.secondaryAccent)
+                        .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                     
                     Text("Meditation Timer")
                         .font(
@@ -394,7 +396,7 @@ private struct MeditationTimerCard: View {
                                 design: .rounded
                             )
                         )
-                        .foregroundStyle(LGradients.header)
+                        .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                     
                     Spacer()
                 }
@@ -486,20 +488,16 @@ private struct MeditationTimerCard: View {
                     Double(index + 1)
                     / Double(dotCount)
                     
-                    Circle()
-                        .fill(
-                            threshold <= progress
-                            ? AnyShapeStyle(
-                                LColors.accentGradient
-                            )
-                            : AnyShapeStyle(
-                                Color.white.opacity(0.14)
-                            )
-                        )
+                    let dotTint = threshold <= progress
+                        ? theme.palette.secondaryAccent
+                        : Color.white.opacity(0.14)
+
+                    BubblyIconMaterial(tint: dotTint)
                         .frame(
                             width: 9,
                             height: 9
                         )
+                        .clipShape(Circle())
                         .position(
                             x: x,
                             y: y
@@ -518,7 +516,7 @@ private struct MeditationTimerCard: View {
                         )
                     )
                     .monospacedDigit()
-                    .foregroundStyle(LGradients.header)
+                    .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                 
                 Text(
                     isPaused
@@ -574,7 +572,7 @@ private struct MeditationTimerCard: View {
                                 design: .rounded
                             )
                         )
-                        .foregroundStyle(LGradients.header)
+                        .bubblyIconMaterial(tint: theme.palette.secondaryAccent)
                         .frame(maxWidth: .infinity)
                         .frame(height: 40)
                         .background(
@@ -616,8 +614,8 @@ private struct MeditationTimerCard: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 40)
                 .background {
-                    Capsule()
-                        .fill(LColors.accentGradient)
+                    BubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                        .clipShape(Capsule())
                 }
         }
         .buttonStyle(.plain)
@@ -677,10 +675,8 @@ private struct MeditationTimerCard: View {
                         height: 40
                     )
                     .background {
-                        Circle()
-                            .fill(
-                                LColors.accentGradient
-                            )
+                        BubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                            .clipShape(Circle())
                     }
             }
             .buttonStyle(.plain)
@@ -719,10 +715,8 @@ private struct MeditationTimerCard: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 40)
                 .background {
-                    Capsule()
-                        .fill(
-                            LColors.accentGradient
-                        )
+                    BubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                        .clipShape(Capsule())
                 }
             }
             .buttonStyle(.plain)
@@ -928,6 +922,8 @@ private struct MeditationTimerCard: View {
 // MARK: - Tarot Card
 
 private struct SpiritualTarotCard: View {
+    @Environment(\.appTheme) private var theme
+
     let tip: DailyTarotTip?
     let isLoading: Bool
     let error: String?
@@ -942,11 +938,12 @@ private struct SpiritualTarotCard: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 22, height: 22)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.indicators)
+                        .bubblyIconMaterial(tint: theme.palette.indicators)
 
                     Text("Daily Tarot")
                         .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .bubblyIconMaterial(tint: theme.palette.indicators)
                     Spacer()
                 }
 
@@ -963,7 +960,7 @@ private struct SpiritualTarotCard: View {
                                     .foregroundStyle(LColors.textSecondary)
                                     .tracking(0.5)
 
-                                SpiritualKeywordWrap(keywords: tip.keywords)
+                                SpiritualKeywordWrap(keywords: tip.keywords, tint: theme.palette.indicators)
                             }
                         }
 
@@ -973,13 +970,14 @@ private struct SpiritualTarotCard: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } else if isLoading {
-                    drawingState(label: "Drawing your card...")
+                    drawingState(label: "Drawing your card...", tint: theme.palette.indicators)
                 } else if let error {
-                    errorState(message: error, onRetry: onDraw)
+                    errorState(message: error, tint: theme.palette.indicators, onRetry: onDraw)
                 } else {
                     emptyState(
                         prompt: "Pull your daily tarot card for today.",
                         buttonLabel: "Get Daily Card",
+                        tint: theme.palette.indicators,
                         onDraw: onDraw
                     )
                 }
@@ -991,6 +989,8 @@ private struct SpiritualTarotCard: View {
 // MARK: - Lenormand Card
 
 private struct SpiritualLenormandCard: View {
+    @Environment(\.appTheme) private var theme
+
     let tip: DailyLenormandTip?
     let isLoading: Bool
     let error: String?
@@ -1005,11 +1005,12 @@ private struct SpiritualLenormandCard: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 22, height: 22)
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(theme.palette.primaryAction)
+                        .bubblyIconMaterial(tint: theme.palette.primaryAction)
 
                     Text("Daily Lenormand")
                         .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     Spacer()
                 }
 
@@ -1026,7 +1027,7 @@ private struct SpiritualLenormandCard: View {
                                     .foregroundStyle(LColors.textSecondary)
                                     .tracking(0.5)
 
-                                SpiritualKeywordWrap(keywords: tip.keywords)
+                                SpiritualKeywordWrap(keywords: tip.keywords, tint: theme.palette.primaryAction)
                             }
                         }
 
@@ -1036,13 +1037,14 @@ private struct SpiritualLenormandCard: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } else if isLoading {
-                    drawingState(label: "Drawing your card...")
+                    drawingState(label: "Drawing your card...", tint: theme.palette.primaryAction)
                 } else if let error {
-                    errorState(message: error, onRetry: onDraw)
+                    errorState(message: error, tint: theme.palette.primaryAction, onRetry: onDraw)
                 } else {
                     emptyState(
                         prompt: "Draw your daily Lenormand insight for today.",
                         buttonLabel: "Draw Lenormand",
+                        tint: theme.palette.primaryAction,
                         onDraw: onDraw
                     )
                 }
@@ -1054,10 +1056,11 @@ private struct SpiritualLenormandCard: View {
 // MARK: - Shared sub-views
 
 @ViewBuilder
-private func drawingState(label: String) -> some View {
+private func drawingState(label: String, tint: Color) -> some View {
     HStack(spacing: 10) {
         ProgressView()
-            .tint(LColors.gradientBlue)
+            .tint(tint)
+            .bubblyIconMaterial(tint: tint)
         Text(label)
             .font(.system(size: 14, weight: .medium, design: .rounded))
             .foregroundStyle(LColors.textSecondary)
@@ -1066,7 +1069,7 @@ private func drawingState(label: String) -> some View {
 }
 
 @ViewBuilder
-private func errorState(message: String, onRetry: @escaping () -> Void) -> some View {
+private func errorState(message: String, tint: Color, onRetry: @escaping () -> Void) -> some View {
     VStack(alignment: .leading, spacing: 10) {
         Text(message)
             .font(.system(size: 13, weight: .medium, design: .rounded))
@@ -1078,17 +1081,17 @@ private func errorState(message: String, onRetry: @escaping () -> Void) -> some 
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(LColors.accentGradient)
-                )
+                .background {
+                    BubblyIconMaterial(tint: tint)
+                        .clipShape(Capsule())
+                }
         }
         .buttonStyle(.plain)
     }
 }
 
 @ViewBuilder
-private func emptyState(prompt: String, buttonLabel: String, onDraw: @escaping () -> Void) -> some View {
+private func emptyState(prompt: String, buttonLabel: String, tint: Color, onDraw: @escaping () -> Void) -> some View {
     VStack(alignment: .leading, spacing: 12) {
         Text(prompt)
             .font(.system(size: 14, weight: .medium, design: .rounded))
@@ -1100,11 +1103,10 @@ private func emptyState(prompt: String, buttonLabel: String, onDraw: @escaping (
                 .foregroundStyle(.white)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 10)
-                .background(
-                    Capsule()
-                        .fill(LColors.accentGradient)
-                        .shadow(color: LColors.gradientPurple.opacity(0.35), radius: 10, y: 5)
-                )
+                .background {
+                    BubblyIconMaterial(tint: tint)
+                        .clipShape(Capsule())
+                }
         }
         .buttonStyle(.plain)
     }
@@ -1114,6 +1116,7 @@ private func emptyState(prompt: String, buttonLabel: String, onDraw: @escaping (
 
 private struct SpiritualKeywordWrap: View {
     let keywords: [String]
+    let tint: Color
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1122,22 +1125,18 @@ private struct SpiritualKeywordWrap: View {
                     ForEach(row, id: \.self) { keyword in
                         Text(keyword)
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundStyle(LGradients.header)
+                            .bubblyIconMaterial(tint: tint)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .background(Color.white.opacity(0.07))
                             .clipShape(Capsule())
-                            .overlay(
-                                Capsule()
-                                    .strokeBorder(
-                                        LinearGradient(
-                                            colors: [LColors.gradientBlue, LColors.gradientPurple],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 1
-                                    )
-                            )
+                            .overlay {
+                                BubblyIconMaterial(tint: tint)
+                                    .mask {
+                                        Capsule()
+                                            .strokeBorder(lineWidth: 1)
+                                    }
+                            }
                     }
                     Spacer(minLength: 0)
                 }

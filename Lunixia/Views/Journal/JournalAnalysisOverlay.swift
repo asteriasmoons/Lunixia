@@ -34,7 +34,7 @@ struct JournalAnalysisOverlay: View {
                 HStack {
                     Text("Daily Analysis")
                         .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
 
                     // Date navigation

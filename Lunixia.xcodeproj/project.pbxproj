@@ -111,6 +111,12 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Models/MoonPhaseData.swift,
+				Theme/AppTheme.swift,
+				Theme/BubblyCardMaterial.swift,
+				Theme/BubblyIconMaterial.swift,
+				Theme/BubblyLightWash.swift,
+				Theme/BubblyTileBackground.swift,
+				Theme/BubblyTileSurface.swift,
 				Theme/LunixiaComponents.swift,
 				Theme/Theme.swift,
 				Utilities/MoonPhaseCalculator.swift,

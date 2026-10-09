@@ -22,6 +22,8 @@ import UIKit
 // functional. Adds `onAddGroup(type, group)` support for grouped lists.
 
 struct NoteListTypeEditorSheet: View {
+    @Environment(\.appTheme) private var theme
+
     let type: NoteListPlacementType
     @Binding var listItems: [NoteListItem]
     @Binding var checklistItems: [NoteChecklistItem]
@@ -84,11 +86,12 @@ struct NoteListTypeEditorSheet: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 24, height: 24)
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(theme.palette.primaryAction)
+                .bubblyIconMaterial(tint: theme.palette.primaryAction)
 
             Text(type.title)
                 .font(.system(size: 28, weight: .black, design: .rounded))
-                .foregroundStyle(LGradients.header)
+                .foregroundStyle(LColors.textPrimary)
 
             Spacer()
 

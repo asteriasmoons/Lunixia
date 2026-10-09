@@ -111,6 +111,31 @@ struct FloatingActionButton: View {
     }
 }
 
+// MARK: - Glass Tile
+
+struct GlassTile<Content: View>: View {
+    @Environment(\.appTheme) private var theme
+
+    var cornerRadius: CGFloat = 10
+    var borderColor: Color? = nil
+    var borderWidth: CGFloat = 1
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(theme.palette.raisedSurface)
+            }
+            .overlay {
+                if let borderColor {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(borderColor, lineWidth: borderWidth)
+                }
+            }
+    }
+}
+
 // MARK: - Glass Text Field
 
 struct GlassTextField: View {
@@ -485,182 +510,636 @@ struct LunixiaBackground: View {
 struct LunixiaGradientTimeDrumPicker: View {
     @Binding var hour: Int
     @Binding var minute: Int
+    var tint: Color? = nil
+    var usesDarkTypography: Bool = false
+
+    private let isCompact: Bool
     
     @State private var displayHour: Int = 9
     @State private var meridiem: String = "AM"
-    @State private var isSyncingFromStoredHour = false
     
     private let meridiems = ["AM", "PM"]
+
+    init(
+        hour: Binding<Int>,
+        minute: Binding<Int>,
+        tint: Color? = nil,
+        usesDarkTypography: Bool = false,
+        isCompact: Bool = false
+    ) {
+        _hour = hour
+        _minute = minute
+        self.tint = tint
+        self.usesDarkTypography = usesDarkTypography
+        self.isCompact = isCompact
+    }
+
+    private var pickerTextColor: Color {
+        usesDarkTypography ? .black : LColors.textPrimary
+    }
     
     private var formattedPreview: String {
         String(format: "%d:%02d %@", displayHour, minute, meridiem)
     }
+
+    private var displayHourBinding: Binding<Int> {
+        Binding(
+            get: { displayHour },
+            set: { newValue in
+                let clamped = max(1, min(12, newValue))
+                guard displayHour != clamped else { return }
+                displayHour = clamped
+            }
+        )
+    }
+
+    private var minuteBinding: Binding<Int> {
+        Binding(
+            get: { max(0, min(59, minute)) },
+            set: { newValue in
+                let clamped = max(0, min(59, newValue))
+                guard minute != clamped else { return }
+                minute = clamped
+            }
+        )
+    }
+
+    private var meridiemBinding: Binding<String> {
+        Binding(
+            get: { meridiem },
+            set: { newValue in
+                guard meridiems.contains(newValue), meridiem != newValue else { return }
+                meridiem = newValue
+            }
+        )
+    }
     
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "clock.fill")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(LGradients.header)
+        VStack(spacing: isCompact ? 8 : 12) {
+            HStack(spacing: isCompact ? 6 : 8) {
+                timePreviewIcon
                 
                 Text(formattedPreview)
-                    .font(.system(size: 18, weight: .black, design: .rounded))
-                    .foregroundStyle(LColors.textPrimary)
+                    .font(.system(size: isCompact ? 12 : 18, weight: .black, design: .rounded))
+                    .foregroundStyle(pickerTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
                 
                 Spacer()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(LColors.glassSurface2, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [LColors.gradientBlue, LColors.gradientPurple],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
+            .padding(.horizontal, isCompact ? 9 : 14)
+            .padding(.vertical, isCompact ? 7 : 10)
+            .background {
+                pickerSurface(cornerRadius: isCompact ? 12 : 16, prominence: .lens)
+            }
             
             ZStack {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(LColors.glassSurface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        LColors.gradientBlue.opacity(0.10),
-                                        LColors.gradientPurple.opacity(0.14),
-                                        Color.white.opacity(0.03)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [LColors.gradientBlue, LColors.gradientPurple],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    )
+                pickerSurface(cornerRadius: isCompact ? 16 : 24)
                 
                 VStack(spacing: 0) {
                     Spacer()
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    LColors.gradientBlue.opacity(0.20),
-                                    LColors.gradientPurple.opacity(0.20)
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(height: 38)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [
-                                            LColors.gradientBlue.opacity(0.55),
-                                            LColors.gradientPurple.opacity(0.55)
-                                        ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
+                    
+                    pickerSelectionSurface(cornerRadius: isCompact ? 9 : 12)
+                        .frame(height: isCompact ? 30 : 38)
+                    
                     Spacer()
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, isCompact ? 5 : 12)
                 
-                HStack(spacing: 6) {
-                    Picker("Hour", selection: $displayHour) {
-                        ForEach(1...12, id: \.self) { value in
-                            Text("\(value)")
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
-                                .foregroundStyle(LColors.textPrimary)
-                                .tag(value)
-                        }
-                    }
-                    .pickerStyle(.wheel)
+                HStack(spacing: isCompact ? 1 : 6) {
+                    LunixiaDrumPickerColumn(
+                        values: Array(1...12),
+                        labels: Array(1...12).map { "\($0)" },
+                        selection: displayHourBinding,
+                        textColor: pickerTextColor,
+                        itemHeight: isCompact ? 30 : 38,
+                        textSize: isCompact ? 15 : 20
+                    )
                     .frame(maxWidth: .infinity)
-                    .frame(height: 120)
+                    .frame(height: isCompact ? 90 : 120)
                     .clipped()
-                    
+
                     Text(":")
-                        .font(.system(size: 24, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
-                    
-                    Picker("Minute", selection: $minute) {
-                        ForEach(0..<60, id: \.self) { value in
-                            Text(String(format: "%02d", value))
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
-                                .foregroundStyle(LColors.textPrimary)
-                                .tag(value)
-                        }
-                    }
-                    .pickerStyle(.wheel)
+                        .font(.system(size: isCompact ? 17 : 24, weight: .black, design: .rounded))
+                        .foregroundStyle(pickerTextColor)
+
+                    LunixiaDrumPickerColumn(
+                        values: Array(0..<60),
+                        labels: Array(0..<60).map { String(format: "%02d", $0) },
+                        selection: minuteBinding,
+                        textColor: pickerTextColor,
+                        itemHeight: isCompact ? 30 : 38,
+                        textSize: isCompact ? 15 : 20
+                    )
                     .frame(maxWidth: .infinity)
-                    .frame(height: 120)
+                    .frame(height: isCompact ? 90 : 120)
                     .clipped()
-                    
-                    Picker("AM PM", selection: $meridiem) {
-                        ForEach(meridiems, id: \.self) { value in
-                            Text(value)
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
-                                .foregroundStyle(LColors.textPrimary)
-                                .tag(value)
-                        }
-                    }
-                    .pickerStyle(.wheel)
+
+                    LunixiaDrumPickerColumn(
+                        values: meridiems,
+                        labels: meridiems,
+                        selection: meridiemBinding,
+                        textColor: pickerTextColor,
+                        itemHeight: isCompact ? 30 : 38,
+                        textSize: isCompact ? 14 : 20
+                    )
                     .frame(maxWidth: .infinity)
-                    .frame(height: 120)
+                    .frame(height: isCompact ? 90 : 120)
                     .clipped()
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, isCompact ? 3 : 8)
             }
-            .frame(height: 138)
+            .frame(height: isCompact ? 104 : 138)
         }
-        .onAppear { syncDisplayValuesFromStoredHour() }
-        .onChange(of: displayHour) { syncStoredHour() }
-        .onChange(of: meridiem) { syncStoredHour() }
-        .onChange(of: hour) { syncDisplayValuesFromStoredHour() }
+        .onAppear {
+            syncDisplayValuesFromStoredHour()
+        }
+        .onChange(of: displayHour) { _, _ in
+            syncStoredHour()
+        }
+        .onChange(of: meridiem) { _, _ in
+            syncStoredHour()
+        }
+        .onChange(of: hour) { _, _ in
+            syncDisplayValuesFromStoredHour()
+        }
+    }
+
+    @ViewBuilder
+    private var timePreviewIcon: some View {
+        if let tint {
+            Image("clockwavy")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: isCompact ? 10 : 13, height: isCompact ? 10 : 13)
+                .foregroundStyle(usesDarkTypography ? Color.black : tint)
+                .bubblyIconMaterial(tint: usesDarkTypography ? .black : tint)
+        } else {
+            Image("clockwavy")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: isCompact ? 10 : 13, height: isCompact ? 10 : 13)
+                .foregroundStyle(LGradients.header)
+        }
+    }
+
+    @ViewBuilder
+    private func pickerSurface(
+        cornerRadius: CGFloat,
+        prominence: LunixiaNeutralGlassProminence = .surface
+    ) -> some View {
+        if let tint {
+            BubblyCardMaterial(
+                tint: tint,
+                cornerRadius: cornerRadius
+            )
+        } else {
+            LunixiaNeutralGlassSurface(
+                cornerRadius: cornerRadius,
+                prominence: prominence
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func pickerSelectionSurface(cornerRadius: CGFloat) -> some View {
+        if let tint {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(usesDarkTypography ? Color.white.opacity(0.24) : Color.black.opacity(0.16))
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(tint.opacity(0.78), lineWidth: 1)
+                }
+        } else {
+            LunixiaNeutralGlassSurface(
+                cornerRadius: cornerRadius,
+                prominence: .active
+            )
+        }
     }
     
     private func syncDisplayValuesFromStoredHour() {
-        isSyncingFromStoredHour = true
         let normalizedHour = max(0, min(23, hour))
+        let newDisplayHour: Int
+        let newMeridiem: String
+
         if normalizedHour == 0 {
-            displayHour = 12; meridiem = "AM"
+            newDisplayHour = 12
+            newMeridiem = "AM"
         } else if normalizedHour < 12 {
-            displayHour = normalizedHour; meridiem = "AM"
+            newDisplayHour = normalizedHour
+            newMeridiem = "AM"
         } else if normalizedHour == 12 {
-            displayHour = 12; meridiem = "PM"
+            newDisplayHour = 12
+            newMeridiem = "PM"
         } else {
-            displayHour = normalizedHour - 12; meridiem = "PM"
+            newDisplayHour = normalizedHour - 12
+            newMeridiem = "PM"
         }
-        isSyncingFromStoredHour = false
+
+        guard displayHour != newDisplayHour || meridiem != newMeridiem else { return }
+
+        displayHour = newDisplayHour
+        meridiem = newMeridiem
     }
-    
+
     private func syncStoredHour() {
-        guard !isSyncingFromStoredHour else { return }
+        let newHour: Int
         if meridiem == "AM" {
-            hour = displayHour == 12 ? 0 : displayHour
+            newHour = displayHour == 12 ? 0 : displayHour
         } else {
-            hour = displayHour == 12 ? 12 : displayHour + 12
+            newHour = displayHour == 12 ? 12 : displayHour + 12
         }
+
+        guard hour != newHour else { return }
+        hour = newHour
+    }
+}
+
+struct LunixiaCompactTimeDrumPicker: View {
+    @Binding var hour: Int
+    @Binding var minute: Int
+    var tint: Color? = nil
+    var usesDarkTypography: Bool = false
+
+    var body: some View {
+        LunixiaGradientTimeDrumPicker(
+            hour: $hour,
+            minute: $minute,
+            tint: tint,
+            usesDarkTypography: usesDarkTypography,
+            isCompact: true
+        )
+    }
+}
+
+
+// MARK: - Pure SwiftUI Drum Picker Column
+
+private struct LunixiaDrumPickerColumn<Value: Hashable>: View {
+    let values: [Value]
+    let labels: [String]
+    @Binding var selection: Value
+    var textColor: Color = .white
+    var itemHeight: CGFloat = 38
+    var textSize: CGFloat = 20
+
+    @State private var dragOffset: CGFloat = 0
+    @State private var baseOffset: CGFloat = 0
+    @State private var isDragging = false
+
+    private var selectedIndex: Int {
+        values.firstIndex(of: selection) ?? 0
+    }
+
+    private var totalOffset: CGFloat {
+        baseOffset + dragOffset
+    }
+
+    private var currentIndex: Int {
+        let raw = -totalOffset / itemHeight
+        return max(0, min(values.count - 1, Int(raw.rounded())))
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let centerY = (geo.size.height - itemHeight) / 2
+
+            ZStack {
+                ForEach(Array(values.enumerated()), id: \.offset) { index, value in
+                    let offsetY = centerY + CGFloat(index) * itemHeight + totalOffset
+                    let distanceFromCenter = abs(offsetY - centerY)
+                    let normalized = max(0, 1 - distanceFromCenter / (itemHeight * 1.5))
+
+                    Text(labels.indices.contains(index) ? labels[index] : "")
+                        .font(.system(size: textSize, weight: .bold, design: .rounded))
+                        .foregroundStyle(textColor.opacity(0.3 + 0.65 * normalized))
+                        .scaleEffect(0.85 + 0.2 * normalized)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                        .frame(height: itemHeight)
+                        .frame(maxWidth: .infinity)
+                        .offset(y: offsetY)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        isDragging = true
+                        dragOffset = value.translation.height
+                    }
+                    .onEnded { value in
+                        isDragging = false
+                        let velocity = value.predictedEndTranslation.height - value.translation.height
+                        let projected = totalOffset + velocity * 0.3
+                        let rawIndex = -projected / itemHeight
+                        let snapped = max(0, min(values.count - 1, Int(rawIndex.rounded())))
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            baseOffset = -CGFloat(snapped) * itemHeight
+                            dragOffset = 0
+                        }
+                        if values.indices.contains(snapped) {
+                            selection = values[snapped]
+                        }
+                    }
+            )
+            .onAppear {
+                baseOffset = -CGFloat(selectedIndex) * itemHeight
+            }
+            .onChange(of: selection) { _, _ in
+                guard !isDragging else { return }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    baseOffset = -CGFloat(selectedIndex) * itemHeight
+                    dragOffset = 0
+                }
+            }
+        }
+    }
+}
+
+
+// MARK: - Gradient Date Drum Picker
+
+/// Three-drum (Month / Day / Year) date picker in the same gradient style
+/// as `LunixiaGradientTimeDrumPicker`. Time-of-day components on the bound
+/// `Date` are preserved — only year/month/day are edited.
+struct LunixiaGradientDateDrumPicker: View {
+    @Binding var date: Date
+    var tint: Color? = nil
+    var usesCardMaterial: Bool = false
+    var usesDarkTypography: Bool = false
+
+    private let isCompact: Bool
+
+    @State private var year: Int
+    @State private var month: Int
+    @State private var day: Int
+
+    private let calendar = Calendar.current
+
+    private let monthShortLabels = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ]
+
+    private static let referenceYear = Calendar.current.component(.year, from: Date())
+    private let yearRange: [Int] = Array((referenceYear - 5)...(referenceYear + 20))
+
+    init(
+        date: Binding<Date>,
+        tint: Color? = nil,
+        usesCardMaterial: Bool = false,
+        usesDarkTypography: Bool = false,
+        isCompact: Bool = false
+    ) {
+        self._date = date
+        self.tint = tint
+        self.usesCardMaterial = usesCardMaterial
+        self.usesDarkTypography = usesDarkTypography
+        self.isCompact = isCompact
+        let comps = Calendar.current.dateComponents([.year, .month, .day], from: date.wrappedValue)
+        _year = State(initialValue: comps.year ?? LunixiaGradientDateDrumPicker.referenceYear)
+        _month = State(initialValue: comps.month ?? 1)
+        _day = State(initialValue: comps.day ?? 1)
+    }
+
+    private var daysInMonth: Int {
+        var comps = DateComponents()
+        comps.year = year
+        comps.month = month
+        guard let firstOfMonth = calendar.date(from: comps),
+              let range = calendar.range(of: .day, in: .month, for: firstOfMonth)
+        else { return 31 }
+        return range.count
+    }
+
+    private var monthBinding: Binding<Int> {
+        Binding(
+            get: { month },
+            set: { newValue in
+                let clamped = max(1, min(12, newValue))
+                guard month != clamped else { return }
+                month = clamped
+            }
+        )
+    }
+
+    private var dayBinding: Binding<Int> {
+        Binding(
+            get: { min(day, daysInMonth) },
+            set: { newValue in
+                let clamped = max(1, min(daysInMonth, newValue))
+                guard day != clamped else { return }
+                day = clamped
+            }
+        )
+    }
+
+    private var yearBinding: Binding<Int> {
+        Binding(
+            get: { year },
+            set: { newValue in
+                guard yearRange.contains(newValue), year != newValue else { return }
+                year = newValue
+            }
+        )
+    }
+
+    private var formattedPreview: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = isCompact ? "MMM d, yyyy" : "EEE, MMM d, yyyy"
+        return formatter.string(from: date)
+    }
+
+    private var pickerTextColor: Color {
+        usesDarkTypography ? .black : LColors.textPrimary
+    }
+
+    var body: some View {
+        VStack(spacing: isCompact ? 8 : 12) {
+            HStack(spacing: isCompact ? 6 : 8) {
+                Group {
+                    if let tint {
+                        Image("ringstarcal")
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .foregroundStyle(usesDarkTypography ? Color.black : tint)
+                            .bubblyIconMaterial(tint: usesDarkTypography ? .black : tint)
+                    } else {
+                        Image(systemName: "calendar")
+                            .font(.system(size: isCompact ? 10 : 13, weight: .bold))
+                            .foregroundStyle(LGradients.header)
+                    }
+                }
+                .frame(
+                    width: isCompact ? 11 : 15,
+                    height: isCompact ? 11 : 15
+                )
+
+                Text(formattedPreview)
+                    .font(.system(size: isCompact ? 12 : 18, weight: .black, design: .rounded))
+                    .foregroundStyle(pickerTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+
+                Spacer()
+            }
+            .padding(.horizontal, isCompact ? 9 : 14)
+            .padding(.vertical, isCompact ? 7 : 10)
+            .background {
+                pickerSurface(cornerRadius: isCompact ? 12 : 16, prominence: .lens)
+            }
+
+            ZStack {
+                pickerSurface(cornerRadius: isCompact ? 16 : 24)
+
+                VStack(spacing: 0) {
+                    Spacer()
+
+                    selectionSurface(cornerRadius: isCompact ? 9 : 12)
+                        .frame(height: isCompact ? 30 : 38)
+
+                    Spacer()
+                }
+                .padding(.horizontal, isCompact ? 5 : 12)
+
+                HStack(spacing: isCompact ? 1 : 6) {
+                    LunixiaDrumPickerColumn(
+                        values: Array(1...12),
+                        labels: monthShortLabels,
+                        selection: monthBinding,
+                        textColor: pickerTextColor,
+                        itemHeight: isCompact ? 30 : 38,
+                        textSize: isCompact ? 14 : 20
+                    )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: isCompact ? 90 : 120)
+                    .clipped()
+
+                    LunixiaDrumPickerColumn(
+                        values: Array(1...daysInMonth),
+                        labels: Array(1...daysInMonth).map { "\($0)" },
+                        selection: dayBinding,
+                        textColor: pickerTextColor,
+                        itemHeight: isCompact ? 30 : 38,
+                        textSize: isCompact ? 15 : 20
+                    )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: isCompact ? 90 : 120)
+                    .clipped()
+
+                    LunixiaDrumPickerColumn(
+                        values: yearRange,
+                        labels: yearRange.map { "\($0)" },
+                        selection: yearBinding,
+                        textColor: pickerTextColor,
+                        itemHeight: isCompact ? 30 : 38,
+                        textSize: isCompact ? 13 : 20
+                    )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: isCompact ? 90 : 120)
+                    .clipped()
+                }
+                .padding(.horizontal, isCompact ? 3 : 8)
+            }
+            .frame(height: isCompact ? 104 : 138)
+        }
+        .onChange(of: month) { _, _ in syncDateFromDrums() }
+        .onChange(of: day) { _, _ in syncDateFromDrums() }
+        .onChange(of: year) { _, _ in syncDateFromDrums() }
+        .onChange(of: date) { _, newValue in syncDrumsFromDate(newValue) }
+    }
+
+    @ViewBuilder
+    private func pickerSurface(
+        cornerRadius: CGFloat,
+        prominence: LunixiaNeutralGlassProminence = .surface
+    ) -> some View {
+        if usesCardMaterial, let tint {
+            BubblyCardMaterial(tint: tint, cornerRadius: cornerRadius)
+        } else {
+            LunixiaNeutralGlassSurface(cornerRadius: cornerRadius, prominence: prominence)
+        }
+    }
+
+    @ViewBuilder
+    private func selectionSurface(cornerRadius: CGFloat) -> some View {
+        if let tint {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(usesDarkTypography ? Color.white.opacity(0.24) : tint.opacity(0.20))
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(tint.opacity(0.72), lineWidth: 1)
+                }
+        } else {
+            LunixiaNeutralGlassSurface(cornerRadius: cornerRadius, prominence: .active)
+        }
+    }
+
+    private func syncDateFromDrums() {
+        var comps = DateComponents()
+        comps.year = year
+        comps.month = month
+        comps.day = min(day, daysInMonth)
+
+        let timeComps = calendar.dateComponents([.hour, .minute, .second], from: date)
+        comps.hour = timeComps.hour
+        comps.minute = timeComps.minute
+        comps.second = timeComps.second
+
+        guard let newDate = calendar.date(from: comps), newDate != date else { return }
+        date = newDate
+    }
+
+    private func syncDrumsFromDate(_ newDate: Date) {
+        let comps = calendar.dateComponents([.year, .month, .day], from: newDate)
+        if let newYear = comps.year, newYear != year { year = newYear }
+        if let newMonth = comps.month, newMonth != month { month = newMonth }
+        if let newDay = comps.day, newDay != day { day = newDay }
+    }
+}
+
+struct LunixiaCompactDateDrumPicker: View {
+    @Binding var date: Date
+    var tint: Color? = nil
+    var usesCardMaterial: Bool = false
+    var usesDarkTypography: Bool = false
+
+    var body: some View {
+        LunixiaGradientDateDrumPicker(
+            date: $date,
+            tint: tint,
+            usesCardMaterial: usesCardMaterial,
+            usesDarkTypography: usesDarkTypography,
+            isCompact: true
+        )
+    }
+}
+
+
+// MARK: - Compact Picker Neutral Surface Support
+private enum LunixiaNeutralGlassProminence {
+    case surface
+    case lens
+    case active
+}
+
+private struct LunixiaNeutralGlassSurface: View {
+    var cornerRadius: CGFloat
+    var prominence: LunixiaNeutralGlassProminence = .surface
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(LColors.glassSurface)
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(LColors.glassBorder, lineWidth: 1)
+            }
     }
 }
 
@@ -708,6 +1187,8 @@ struct GlassTextEditor: View {
 // MARK: - Glass Card
 
 struct GlassCard<Content: View>: View {
+    @Environment(\.appTheme) private var theme
+
     var cornerRadius: CGFloat = 24
     var padding: CGFloat = LSpacing.cardPadding
     var borderColor: Color? = nil
@@ -718,88 +1199,8 @@ struct GlassCard<Content: View>: View {
             .padding(padding)
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color(lunixiaHex: "#09090d").opacity(0.90))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(Color.white.opacity(0.045))
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        Color(lunixiaHex: "#4388C5").opacity(0.36),
-                                        Color(lunixiaHex: "#4388C5").opacity(0.08),
-                                        Color(lunixiaHex: "#07070a").opacity(0.0)
-                                    ],
-                                    center: UnitPoint(x: 0.22, y: 0.30),
-                                    startRadius: 0,
-                                    endRadius: 120
-                                )
-                            )
-                            .blur(radius: 18)
-                            .mask(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        Color(lunixiaHex: "#6111b8").opacity(0.38),
-                                        Color(lunixiaHex: "#6111b8").opacity(0.09),
-                                        Color(lunixiaHex: "#07070a").opacity(0.0)
-                                    ],
-                                    center: UnitPoint(x: 0.78, y: 0.70),
-                                    startRadius: 0,
-                                    endRadius: 120
-                                )
-                            )
-                            .blur(radius: 18)
-                            .mask(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        Color(lunixiaHex: "#4f45bc").opacity(0.045),
-                                        Color(lunixiaHex: "#190a32").opacity(0.015),
-                                        Color(lunixiaHex: "#07070a").opacity(0.0)
-                                    ],
-                                    center: .center,
-                                    startRadius: 0,
-                                    endRadius: 115
-                                )
-                            )
-                            .blur(radius: 14)
-                            .mask(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [
-                                        Color(lunixiaHex: "#4388C5").opacity(0.30),
-                                        Color(lunixiaHex: "#6111b8").opacity(0.24),
-                                        Color.white.opacity(0.09),
-                                        Color.white.opacity(0.055)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    }
-                    .overlay {
-                        if let borderColor {
-                            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                                .strokeBorder(borderColor, lineWidth: 1)
-                        }
-                    }
+                    .fill(theme.palette.surface)
             }
-            .shadow(color: Color.black.opacity(0.42), radius: 18, y: 10)
-            .shadow(color: Color(lunixiaHex: "#4388C5").opacity(0.10), radius: 14, y: 6)
-            .shadow(color: Color(lunixiaHex: "#6111b8").opacity(0.10), radius: 16, y: 8)
     }
 }
 

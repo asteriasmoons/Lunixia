@@ -34,6 +34,32 @@ struct VitalsDetailView: View {
 
     private var totalCount: Int { allFiltered.count }
 
+    @Environment(\.appTheme) private var theme
+
+    private var rotatingColors: [Color] {
+        [theme.palette.primaryAction, theme.palette.secondaryAccent, theme.palette.indicators]
+    }
+
+    private var dayColorByEntryID: [PersistentIdentifier: Color] {
+        let calendar = Calendar.current
+        var dayOrder: [Date] = []
+        var dayIndex: [Date: Int] = [:]
+
+        for entry in allFiltered {
+            let day = calendar.startOfDay(for: entry.timestamp)
+            if dayIndex[day] == nil {
+                dayIndex[day] = dayOrder.count
+                dayOrder.append(day)
+            }
+        }
+
+        return Dictionary(uniqueKeysWithValues: allFiltered.map { entry in
+            let day = calendar.startOfDay(for: entry.timestamp)
+            let index = dayIndex[day] ?? 0
+            return (entry.persistentModelID, rotatingColors[index % rotatingColors.count])
+        })
+    }
+
     var body: some View {
         ZStack {
             LunixiaBackground()
@@ -43,7 +69,7 @@ struct VitalsDetailView: View {
                 HStack {
                     Text("Vitals History")
                         .font(.system(size: 22, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     Button { dismiss() } label: {
                         Image("xmarkwavy")
@@ -51,7 +77,8 @@ struct VitalsDetailView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }
                     .buttonStyle(.plain)
                 }
@@ -62,23 +89,24 @@ struct VitalsDetailView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 12) {
                         ForEach(visibleEntries) { e in
+                            let tint = dayColorByEntryID[e.persistentModelID] ?? theme.palette.primaryAction
                             GlassCard(padding: 16) {
-                                VStack(alignment: .leading, spacing: 10) {
+                                VStack(alignment: .leading, spacing: 12) {
                                     Text(e.timestamp.formatted(date: .abbreviated, time: .shortened))
                                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                                         .foregroundStyle(LColors.textSecondary)
 
                                     Grid(horizontalSpacing: 10, verticalSpacing: 10) {
                                         GridRow {
-                                            vitalsTile(label: "SpO2", value: e.bloodOxygen == 0 ? "--" : "\(Int(e.bloodOxygen))%")
-                                            vitalsTile(label: "Systolic", value: e.systolic == 0 ? "--" : "\(Int(e.systolic))")
-                                            vitalsTile(label: "Diastolic", value: e.diastolic == 0 ? "--" : "\(Int(e.diastolic))")
+                                            vitalsTile(label: "SpO2", value: e.bloodOxygen == 0 ? "--" : "\(Int(e.bloodOxygen))%", tint: tint)
+                                            vitalsTile(label: "Systolic", value: e.systolic == 0 ? "--" : "\(Int(e.systolic))", tint: tint)
+                                            vitalsTile(label: "Diastolic", value: e.diastolic == 0 ? "--" : "\(Int(e.diastolic))", tint: tint)
                                         }
 
                                         GridRow {
-                                            vitalsTile(label: "BPM", value: e.bpm == 0 ? "--" : "\(Int(e.bpm)) bpm")
-                                            vitalsTile(label: "Temp", value: e.bodyTemp == 0 ? "--" : String(format: "%.1f°F", e.bodyTemp))
-                                            vitalsTile(label: "Weight", value: e.weight == 0 ? "--" : String(format: "%.1f lbs", e.weight))
+                                            vitalsTile(label: "BPM", value: e.bpm == 0 ? "--" : "\(Int(e.bpm)) bpm", tint: tint)
+                                            vitalsTile(label: "Temp", value: e.bodyTemp == 0 ? "--" : String(format: "%.1f°F", e.bodyTemp), tint: tint)
+                                            vitalsTile(label: "Weight", value: e.weight == 0 ? "--" : String(format: "%.1f lbs", e.weight), tint: tint)
                                         }
                                     }
                                 }
@@ -94,9 +122,13 @@ struct VitalsDetailView: View {
                                         Text("Load More")
                                             .font(.system(size: 13, weight: .bold, design: .rounded))
                                             .foregroundStyle(.white)
+                                            .shadow(color: .black.opacity(0.75), radius: 2, x: 0, y: 1)
                                             .padding(.horizontal, 20)
                                             .padding(.vertical, 9)
-                                            .background(LColors.accentGradient, in: Capsule())
+                                            .background {
+                                                BubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                                                    .clipShape(Capsule())
+                                            }
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -130,10 +162,10 @@ struct VitalsDetailView: View {
     }
 
     @ViewBuilder
-    private func vitalsTile(label: String, value: String) -> some View {
+    private func vitalsTile(label: String, value: String, tint: Color) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 15, weight: .black, design: .rounded))
+                .font(.system(size: 16, weight: .black, design: .rounded))
                 .foregroundStyle(value == "--" ? LColors.textSecondary.opacity(0.35) : LColors.textPrimary)
             Text(label)
                 .font(.system(size: 10, weight: .semibold, design: .rounded))
@@ -141,10 +173,11 @@ struct VitalsDetailView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(LColors.glassSurface)
-        )
+        .background {
+            GlassTile(borderColor: tint) {
+                Color.clear
+            }
+        }
     }
 }
 
@@ -177,6 +210,27 @@ struct ExerciseDetailView: View {
 
     private var totalCount: Int { allFiltered.count }
 
+    @Environment(\.appTheme) private var theme
+
+    private var rotatingColors: [Color] {
+        [theme.palette.primaryAction, theme.palette.secondaryAccent, theme.palette.indicators]
+    }
+
+    private var dayTintMap: [Date: Color] {
+        let calendar = Calendar.current
+        var map: [Date: Color] = [:]
+        var distinctDayIndex = 0
+
+        for entry in allFiltered {
+            let day = calendar.startOfDay(for: entry.timestamp)
+            if map[day] == nil {
+                map[day] = rotatingColors[distinctDayIndex % rotatingColors.count]
+                distinctDayIndex += 1
+            }
+        }
+        return map
+    }
+
     var body: some View {
         ZStack {
             LunixiaBackground()
@@ -186,7 +240,7 @@ struct ExerciseDetailView: View {
                 HStack {
                     Text("Exercise History")
                         .font(.system(size: 22, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     Button { dismiss() } label: {
                         Image("xmarkwavy")
@@ -194,7 +248,8 @@ struct ExerciseDetailView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }
                     .buttonStyle(.plain)
                 }
@@ -205,6 +260,8 @@ struct ExerciseDetailView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 12) {
                         ForEach(visibleEntries) { e in
+                            let day = Calendar.current.startOfDay(for: e.timestamp)
+                            let tint = dayTintMap[day] ?? theme.palette.primaryAction
                             GlassCard(padding: 16) {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text(e.timestamp.formatted(date: .abbreviated, time: .shortened))
@@ -217,13 +274,27 @@ struct ExerciseDetailView: View {
                                             .foregroundStyle(LColors.textPrimary)
                                         Spacer()
                                         HStack(spacing: 12) {
-                                            Label("\(e.durationMinutes)m", systemImage: "clock.fill")
-                                            Label("\(e.reps) reps", systemImage: "arrow.triangle.2.circlepath")
+                                            HStack(spacing: 5) {
+                                                Image(systemName: "clock.fill")
+                                                    .foregroundStyle(LColors.textSecondary)
+                                                    .bubblyIconMaterial(tint: LColors.textSecondary)
+                                                Text("\(e.durationMinutes)m")
+                                            }
+                                            HStack(spacing: 5) {
+                                                Image(systemName: "arrow.triangle.2.circlepath")
+                                                    .foregroundStyle(LColors.textSecondary)
+                                                    .bubblyIconMaterial(tint: LColors.textSecondary)
+                                                Text("\(e.reps) reps")
+                                            }
                                         }
                                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                                         .foregroundStyle(LColors.textSecondary)
                                     }
                                 }
+                            }
+                            .overlay {
+                                RoundedRectangle(cornerRadius: LSpacing.cardRadius, style: .continuous)
+                                    .strokeBorder(tint, lineWidth: 1.35)
                             }
                         }
 
@@ -236,9 +307,13 @@ struct ExerciseDetailView: View {
                                         Text("Load More")
                                             .font(.system(size: 13, weight: .bold, design: .rounded))
                                             .foregroundStyle(.white)
+                                            .shadow(color: .black.opacity(0.75), radius: 2, x: 0, y: 1)
                                             .padding(.horizontal, 20)
                                             .padding(.vertical, 9)
-                                            .background(LColors.accentGradient, in: Capsule())
+                                            .background {
+                                                BubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                                                    .clipShape(Capsule())
+                                            }
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -355,6 +430,7 @@ struct WaterHistoryView: View {
             visibleCount: $visibleCount,
             pageSize: pageSize,
             emptyMessage: "No water history yet",
+            rotateColorsByDate: true,
             onClose: { dismiss() }
         )
     }
@@ -431,6 +507,7 @@ struct StepsHistoryView: View {
             visibleCount: $visibleCount,
             pageSize: pageSize,
             emptyMessage: "No step history yet",
+            rotateColorsByDate: true,
             onClose: { dismiss() }
         )
     }
@@ -443,7 +520,28 @@ private struct HealthMetricHistorySheetLayout: View {
     @Binding var visibleCount: Int
     let pageSize: Int
     let emptyMessage: String
+    var rotateColorsByDate: Bool = false
     let onClose: () -> Void
+
+    @Environment(\.appTheme) private var theme
+
+    private var rotatingColors: [Color] {
+        [theme.palette.primaryAction, theme.palette.secondaryAccent, theme.palette.indicators]
+    }
+
+    private var dayTintMap: [Date: Color] {
+        let calendar = Calendar.current
+        var map: [Date: Color] = [:]
+        var distinctDayIndex = 0
+        for entry in entries {
+            let day = calendar.startOfDay(for: entry.timestamp)
+            if map[day] == nil {
+                map[day] = rotatingColors[distinctDayIndex % rotatingColors.count]
+                distinctDayIndex += 1
+            }
+        }
+        return map
+    }
 
     var body: some View {
         ZStack {
@@ -454,7 +552,7 @@ private struct HealthMetricHistorySheetLayout: View {
                 HStack {
                     Text(title)
                         .font(.system(size: 22, weight: .black, design: .rounded))
-                        .foregroundStyle(LGradients.header)
+                        .foregroundStyle(LColors.textPrimary)
                     Spacer()
                     Button(action: onClose) {
                         Image("xmarkwavy")
@@ -462,7 +560,8 @@ private struct HealthMetricHistorySheetLayout: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(LGradients.header)
+                            .foregroundStyle(theme.palette.primaryAction)
+                            .bubblyIconMaterial(tint: theme.palette.primaryAction)
                     }
                     .buttonStyle(.plain)
                 }
@@ -482,7 +581,15 @@ private struct HealthMetricHistorySheetLayout: View {
                             }
                         } else {
                             ForEach(entries) { entry in
-                                HealthMetricHistoryRow(entry: entry)
+                                let day = Calendar.current.startOfDay(for: entry.timestamp)
+                                let tint = rotateColorsByDate
+                                    ? (dayTintMap[day] ?? theme.palette.primaryAction)
+                                    : theme.palette.primaryAction
+                                HealthMetricHistoryRow(
+                                    entry: entry,
+                                    tint: tint,
+                                    useRotatingStyle: rotateColorsByDate
+                                )
                             }
                         }
 
@@ -495,9 +602,13 @@ private struct HealthMetricHistorySheetLayout: View {
                                         Text("Load More")
                                             .font(.system(size: 13, weight: .bold, design: .rounded))
                                             .foregroundStyle(.white)
+                                            .shadow(color: .black.opacity(0.75), radius: 2, x: 0, y: 1)
                                             .padding(.horizontal, 20)
                                             .padding(.vertical, 9)
-                                            .background(LColors.accentGradient, in: Capsule())
+                                            .background {
+                                                BubblyIconMaterial(tint: theme.palette.secondaryAccent)
+                                                    .clipShape(Capsule())
+                                            }
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -533,40 +644,54 @@ private struct HealthMetricHistorySheetLayout: View {
 
 private struct HealthMetricHistoryRow: View {
     let entry: HealthMetricHistoryRowModel
+    let tint: Color
+    let useRotatingStyle: Bool
 
     var body: some View {
         GlassCard(padding: 16) {
-            HStack(alignment: .top, spacing: 12) {
-                Text(entry.badge)
-                    .font(.system(size: 10, weight: .black, design: .rounded))
-                    .tracking(1.4)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(entry.badgeStyle)
-                    )
-
-                VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .center, spacing: 8) {
                     Text(entry.title)
                         .font(.system(size: 15, weight: .black, design: .rounded))
                         .foregroundStyle(LColors.textPrimary)
                         .lineLimit(2)
                         .minimumScaleFactor(0.85)
 
-                    Text(entry.subtitle)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(LColors.textSecondary.opacity(0.74))
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.85)
-
-                    Text(entry.timestamp.formatted(date: .abbreviated, time: .shortened))
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundStyle(LColors.textSecondary.opacity(0.5))
+                    Text(entry.badge)
+                        .font(.system(size: 10, weight: .black, design: .rounded))
+                        .tracking(1.1)
+                        .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.7), radius: 1.5, x: 0, y: 1)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background {
+                            if useRotatingStyle {
+                                Capsule(style: .continuous)
+                                    .fill(tint)
+                                    .bubblyIconMaterial(tint: tint)
+                            } else {
+                                Capsule(style: .continuous)
+                                    .fill(entry.badgeStyle)
+                            }
+                        }
                 }
 
-                Spacer(minLength: 0)
+                Text(entry.subtitle)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(LColors.textSecondary.opacity(0.74))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+
+                Text(entry.timestamp.formatted(date: .abbreviated, time: .shortened))
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(LColors.textSecondary.opacity(0.5))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .overlay {
+            if useRotatingStyle {
+                RoundedRectangle(cornerRadius: LSpacing.cardRadius, style: .continuous)
+                    .strokeBorder(tint, lineWidth: 1.35)
             }
         }
     }

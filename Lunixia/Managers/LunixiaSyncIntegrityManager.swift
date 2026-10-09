@@ -61,14 +61,22 @@ final class LunixiaSyncIntegrityManager: ObservableObject {
             // A fresh device needs a longer window for its first import to
             // begin. An established local store only needs the quiet window.
             try? await Task.sleep(for: hasLocalIdentity ? .seconds(2) : .seconds(8))
-            let didSettle = await waitForImportToSettle(maximumWait: .seconds(90))
-            guard !Task.isCancelled, didSettle else {
-                scheduleReconciliation(in: container, after: .seconds(10))
-                return
-            }
+            let didSettle = await waitForImportToSettle(
+                maximumWait: hasLocalIdentity ? .seconds(8) : .seconds(30)
+            )
+            guard !Task.isCancelled else { return }
+
             hasCompletedInitialGate = true
-            reconcileAndRunAutomations(in: container)
             isReadyForContent = true
+
+            if didSettle {
+                reconcileAndRunAutomations(in: container)
+            } else {
+                // CloudKit can leave a started import event without a matching
+                // terminal event. Keep reconciliation deferred, but never trap
+                // the entire app behind the startup screen indefinitely.
+                scheduleReconciliation(in: container, after: .seconds(10))
+            }
         }
     }
 

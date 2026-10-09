@@ -2,10 +2,8 @@
 //  LunixiaReportTheme.swift
 //  Lunixia
 //
-//  Compatibility layer for the ported Voxiverse report system. It forwards the
-//  color/theme symbols the report UI expects onto Lunixia's existing LColors
-//  palette, so the report screens render with Lunixia's real theme rather than
-//  introducing a second design system.
+//  Compatibility aliases and interaction helpers for the ported report system.
+//  The shared `AppTheme` environment is defined in AppTheme.swift.
 //
 
 import SwiftUI
@@ -34,33 +32,6 @@ extension LColors {
 
     enum iconContainer {
         static let primary = LColors.accent.opacity(0.16)
-    }
-}
-
-// MARK: - appTheme palette (report views read `theme.palette.*`)
-
-struct LunixiaReportPalette {
-    let primaryAction = LColors.accent
-    let secondaryAccent = LColors.accentHover
-    let indicators = LColors.accent
-    let raisedSurface = LColors.glassSurface2
-    let background = LColors.bg
-    let textPrimary = LColors.textPrimary
-    var rotation: [Color] { [secondaryAccent, primaryAction] }
-}
-
-struct LunixiaReportTheme {
-    let palette = LunixiaReportPalette()
-}
-
-private struct LunixiaAppThemeKey: EnvironmentKey {
-    static let defaultValue = LunixiaReportTheme()
-}
-
-extension EnvironmentValues {
-    var appTheme: LunixiaReportTheme {
-        get { self[LunixiaAppThemeKey.self] }
-        set { self[LunixiaAppThemeKey.self] = newValue }
     }
 }
 
